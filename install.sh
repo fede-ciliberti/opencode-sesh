@@ -71,6 +71,7 @@ PANEL_DIR="$CONFIG_DIR/tui-plugins/sesh-panel"
 PANEL_DST="$PANEL_DIR/tui.tsx"
 PACKAGE_JSON="$CONFIG_DIR/package.json"
 OPENCODE_JSON="$CONFIG_DIR/opencode.json"
+CLI_JSON="$CONFIG_DIR/cli.json"
 TUI_JSON="$CONFIG_DIR/tui.json"
 
 # Remove a file only when it carries our marker, so a user's own file with a
@@ -102,11 +103,56 @@ remove_opencode_entry() {
   command -v jq >/dev/null 2>&1 || return 0
   local tmp
   tmp=$(mktemp "${TMPDIR:-/tmp}/sesh-opencode.XXXXXX") || return 0
-  if jq 'if (.plugins | type) == "array" then .plugins = [.plugins[] | select(. != "./tui-plugins/sesh-panel")] else . end' "$OPENCODE_JSON" > "$tmp" 2>/dev/null; then
+  # Match both the legacy string entry and the object form, so a migrated
+  # registration never survives and loads the panel twice.
+  if jq 'if (.plugins | type) == "array" then .plugins = [.plugins[] | select((if type == "string" then . else (.package // "") end) != "./tui-plugins/sesh-panel")] else . end' "$OPENCODE_JSON" > "$tmp" 2>/dev/null; then
     cmp -s "$OPENCODE_JSON" "$tmp" || mv "$tmp" "$OPENCODE_JSON"
     rm -f "$tmp"
   else
     rm -f "$tmp"
+  fi
+}
+
+remove_cli_entry() {
+  [ -f "$CLI_JSON" ] || return 0
+  command -v jq >/dev/null 2>&1 || return 0
+  local tmp
+  tmp=$(mktemp "${TMPDIR:-/tmp}/sesh-cli.XXXXXX") || return 0
+  if jq 'if (.plugins | type) == "array" then .plugins = [.plugins[] | select((if type == "string" then . else (.package // "") end) != "./tui-plugins/sesh-panel")] else . end' "$CLI_JSON" > "$tmp" 2>/dev/null; then
+    cmp -s "$CLI_JSON" "$tmp" || mv "$tmp" "$CLI_JSON"
+    rm -f "$tmp"
+  else
+    rm -f "$tmp"
+  fi
+}
+
+# The TUI panel is a terminal-only plugin: opencode passes plugin options to the
+# TUI only for entries declared in cli.json, so that is where it must live.
+# Options the user already set (showHome, showSidebar, sidebarPlacement) are
+# preserved; a missing entry is added without options so defaults apply.
+register_cli_panel() {
+  command -v jq >/dev/null 2>&1 || return 0
+  if [ ! -f "$CLI_JSON" ]; then
+    printf '{\n  "$schema": "https://opencode.ai/v2/cli.json",\n  "plugins": []\n}\n' > "$CLI_JSON"
+    note "created $CLI_JSON"
+  fi
+  local tmp
+  tmp=$(mktemp "${TMPDIR:-/tmp}/sesh-cli.XXXXXX") || return 0
+  if jq --arg pkg "./tui-plugins/sesh-panel" '
+    (.plugins // []) as $plugins
+    | ([$plugins[] | select((if type == "string" then . else (.package // "") end) == $pkg)] | length) as $present
+    | if $present > 0 then . else .plugins = $plugins + [{package: $pkg}] end
+  ' "$CLI_JSON" > "$tmp" 2>/dev/null; then
+    if cmp -s "$CLI_JSON" "$tmp"; then
+      note "cli.json already registers the sesh panel"
+    else
+      mv "$tmp" "$CLI_JSON"
+      note "registered ./tui-plugins/sesh-panel in cli.json"
+    fi
+    rm -f "$tmp"
+  else
+    rm -f "$tmp"
+    note "warning: could not update $CLI_JSON; add \"./tui-plugins/sesh-panel\" to its plugins list by hand"
   fi
 }
 
@@ -158,27 +204,11 @@ install_tui_panel() {
   fi
   plugin_version="${opencode_version:-$PLUGIN_VERSION_FALLBACK}"
 
-  local opencode_tmp=''
-  if [ ! -f "$OPENCODE_JSON" ]; then
-    printf '{\n  "$schema": "https://opencode.ai/config.json",\n  "plugins": []\n}\n' > "$OPENCODE_JSON"
-    note "created $OPENCODE_JSON"
-  fi
-  opencode_tmp=$(mktemp "${TMPDIR:-/tmp}/sesh-opencode.XXXXXX")
-  if jq '
-    (.plugins // []) as $plugins
-    | if ($plugins | index("./tui-plugins/sesh-panel")) then . else .plugins = $plugins + ["./tui-plugins/sesh-panel"] end
-  ' "$OPENCODE_JSON" > "$opencode_tmp" 2>/dev/null; then
-    if cmp -s "$OPENCODE_JSON" "$opencode_tmp"; then
-      note "opencode.json already registers the sesh panel"
-      rm -f "$opencode_tmp"
-    else
-      mv "$opencode_tmp" "$OPENCODE_JSON"
-      note "registered ./tui-plugins/sesh-panel in opencode.json"
-    fi
-  else
-    rm -f "$opencode_tmp"
-    note "warning: could not update $OPENCODE_JSON; add \"./tui-plugins/sesh-panel\" to its plugins list by hand"
-  fi
+  # The panel is a terminal-only plugin, so it belongs in cli.json where
+  # plugin options reach the TUI. Older installs registered it in
+  # opencode.json; drop that entry so it is never loaded twice.
+  remove_opencode_entry
+  register_cli_panel
 
   # Clean up obsolete V1 tui.json entry if present
   remove_tui_entry
@@ -244,6 +274,7 @@ if [ "$UNINSTALL" = 1 ]; then
   fi
   remove_if_marker "$CONFIG_DIR/plugins/sesh-panel.tsx" 'id: "sesh-panel"' && note "removed $CONFIG_DIR/plugins/sesh-panel.tsx"
   remove_opencode_entry && note "unregistered the panel from $OPENCODE_JSON"
+  remove_cli_entry && note "unregistered the panel from $CLI_JSON"
   remove_tui_entry && note "unregistered the panel from $TUI_JSON"
   note "uninstalled (extraction cache and plugin dependencies left intact)"
   exit 0
