@@ -121,6 +121,10 @@ trap cleanup EXIT
 trap 'exit 130' HUP INT TERM
 
 cache_cmd="$q_worker render --state-dir $q_state --query {q} --selected-id {6}"
+# After a scope toggle the previous selection is usually outside the new scope,
+# and carrying it over only renders "Selected session is no longer available".
+# Reload without it so the list starts at its first row.
+toggle_reload_cmd="$q_worker render --state-dir $q_state --query {q}"
 # fzf's --header is the only place a persistent scope/status line can live
 # without becoming a selectable row, so it is refreshed by transform-header on
 # start, on the 3s poll and after either action that can change it. Order
@@ -129,7 +133,11 @@ cache_cmd="$q_worker render --state-dir $q_state --query {q} --selected-id {6}"
 header_cmd="$q_list --header --state-dir $q_state"
 preview_cmd="if [ -f $q_state/help ]; then $q_shortcuts; else $q_preview $q_state {2}; fi"
 help_bind="?:transform:[ -z {q} ] && ( [ -f $q_state/help ] && rm -f $q_state/help && echo hide-preview || ( : > $q_state/help && echo show-preview+refresh-preview ) ) || echo 'put(?)'"
-toggle_cmd="$q_list --toggle-scope --wait-lock 12 --state-dir $q_state >/dev/null"
+# A scope toggle rebuilds the snapshot — scope is applied at assembly, not at
+# render — so it costs a full scan. The lock budget must exceed one (~13s on an
+# 8k-session history) or the toggle aborts and leaves the header, the count and
+# the list disagreeing.
+toggle_cmd="$q_list --toggle-scope --wait-lock 60 --state-dir $q_state >/dev/null"
 delete_cmd="$q_delete $q_state {2}"
 pin_session_cmd="$q_pins toggle-session {2}"
 pin_directory_cmd="$q_pins toggle-directory {5}"
@@ -145,7 +153,7 @@ while :; do
     --bind='ctrl-p:toggle-preview' \
     --bind="$help_bind" \
     --bind="ctrl-x:execute($delete_cmd)+transform-header($header_cmd)+reload($cache_cmd)" \
-    --bind="ctrl-g:execute($toggle_cmd)+transform-header($header_cmd)+reload($cache_cmd)" \
+    --bind="ctrl-g:execute($toggle_cmd)+transform-header($header_cmd)+reload($toggle_reload_cmd)" \
     --bind="ctrl-s:execute-silent($pin_session_cmd)+reload($cache_cmd)" \
     --bind="ctrl-d:execute-silent($pin_directory_cmd)+reload($cache_cmd)" \
     --bind="change:reload:$cache_cmd" \
@@ -170,14 +178,16 @@ if [ -z "$session_id" ]; then
   esac
   continue
 fi
-# Dispatch queues a new worker scan and waits for that exact serialized poll.
-# It cannot accept a previously fresh status while the worker owns its lock.
-# A --print lookup reads the published snapshot, so it skips the wait entirely
-# and stays usable from scripts without paying a rescan.
-if [ "$picker_print" = 0 ]; then
+# Dispatch resolves the row against the published snapshot, so a snapshot that
+# is already fresh is authoritative: the record below is read from that exact
+# file. Queueing a new scan here made every dispatch pay for a full scan, and on
+# a large history (a warm scan measures ~13s across 8k sessions) that outran the
+# dispatcher's budget and cancelled the selection every time. Only an unfresh
+# snapshot queues a scan, and its budget covers a cold one.
+if [ "$picker_print" = 0 ] && [ "$(cat "$state_dir/status" 2>/dev/null || true)" != fresh ]; then
   printf 'sesh: refreshing session state…' >&2
   poll_target=$("$SCRIPT_DIR/sesh-refresh-worker.sh" request --state-dir "$state_dir")
-  if ! "$SCRIPT_DIR/sesh-refresh-worker.sh" wait --state-dir "$state_dir" --target "$poll_target" --timeout 12; then
+  if ! "$SCRIPT_DIR/sesh-refresh-worker.sh" wait --state-dir "$state_dir" --target "$poll_target" --timeout 60; then
     printf '\r\033[K' >&2
     echo 'sesh: session state unavailable; selection cancelled, retry after refresh' >&2
     continue

@@ -111,7 +111,11 @@ case "$MODE" in
       serving=$(request_number)
       case "$serving" in ''|*[!0-9]*) serving=0;; esac
       set -m
-      "$LIST" --refresh --wait-lock 3 --state-dir "$STATE_DIR" >/dev/null &
+      # The scan reports its outcome through $STATE_DIR/status, which the picker
+      # header shows; its stderr would land on the terminal mid-interaction. A
+      # deferred scan (another action, such as the Ctrl-G scope toggle, holds the
+      # refresh lock) is expected and retried, not something to show the user.
+      "$LIST" --refresh --wait-lock 3 --state-dir "$STATE_DIR" >/dev/null 2>&1 &
       scan_pid=$!
       set +m
       atomic_text "$STATE_DIR/worker-scan.pid" "$scan_pid"
