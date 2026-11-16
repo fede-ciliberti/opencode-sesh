@@ -205,7 +205,9 @@ when opencode exits, the picker reopens with the query preserved.
   `SIDEBAR_SESSIONS` sessions each, plus every pinned session and the open one
   wherever they sit, and a `Load more…` row that doubles both budgets; a search
   lifts the budgets — and flex-grows to fill the sidebar, scrolling inside; the
-  picker remains the place for transcript search.
+  picker remains the place for transcript search. That row sits **above** the
+  list: the slot gives the panel no bounded height, so it grows with its
+  content and anything after the list is clipped.
   Sessions waiting on the user (unanswered questions, stuck runs) pin a
   **Needs input** group above the directories, with the count in the heading —
   same `NEEDS_INPUT_SQL` heuristic as `bin/sesh-waiting.sh`. Message payloads are

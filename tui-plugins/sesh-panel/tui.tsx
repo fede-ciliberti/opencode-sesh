@@ -1532,8 +1532,9 @@ type TreeRow =
   | { kind: "group"; dir: string; label: string; count: number }
   | { kind: "item"; entry: Entry; last: boolean }
 
-// What the sidebar's budget hides: a sticky footer row, so the affordance is
-// never pushed below the scroll viewport exactly when it is needed.
+// What the sidebar's budget hides. The row sits above the list, not after it:
+// the real sidebar slot gives the panel no bounded height, so the panel grows
+// with its content and anything below the list is clipped out of view.
 type SidebarMore = { dirs: number; sessions: number }
 
 type PickerRow =
@@ -2279,6 +2280,35 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
             </text>
           </Show>
         </box>
+        <Show when={moreRow()}>
+          {(more) => (
+            <box
+              flexDirection="row"
+              flexShrink={0}
+              height={1}
+              paddingLeft={1}
+              paddingRight={1}
+              ref={(ref: { width: number }) => (moreBox = ref)}
+              renderAfter={() => {
+                if (moreBox && moreBox.width !== moreWidth()) {
+                  const measured = moreBox.width
+                  queueMicrotask(() => setMoreWidth(measured))
+                }
+              }}
+              onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
+                event.stopPropagation()
+                if (event.button === RIGHT_BUTTON) return
+                menu.close()
+                cancelDelete()
+                loadMore()
+              }}
+            >
+              <text flexGrow={1} flexShrink={1} overflow="hidden" wrapMode="none" style={{ fg: theme().textMuted }}>
+                {sidebarMoreLabel(more().dirs, more().sessions, Math.max(0, moreWidth() - 2))}
+              </text>
+            </box>
+          )}
+        </Show>
         <scrollbox
           ref={(node: { scrollTop: number }) => (sidebarScroll = node)}
           flexGrow={1}
@@ -2373,34 +2403,6 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
           }}
         </For>
         </scrollbox>
-        <Show when={moreRow()}>
-          {(more) => (
-            <box
-              flexDirection="row"
-              flexShrink={0}
-              paddingLeft={1}
-              paddingRight={1}
-              ref={(ref: { width: number }) => (moreBox = ref)}
-              renderAfter={() => {
-                if (moreBox && moreBox.width !== moreWidth()) {
-                  const measured = moreBox.width
-                  queueMicrotask(() => setMoreWidth(measured))
-                }
-              }}
-              onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
-                event.stopPropagation()
-                if (event.button === RIGHT_BUTTON) return
-                menu.close()
-                cancelDelete()
-                loadMore()
-              }}
-            >
-              <text flexGrow={1} flexShrink={1} overflow="hidden" wrapMode="none" style={{ fg: theme().textMuted }}>
-                {sidebarMoreLabel(more().dirs, more().sessions, Math.max(0, moreWidth() - 2))}
-              </text>
-            </box>
-          )}
-        </Show>
         <Show when={query().trim() && filteredEntries().length === 0}>
             <text style={{ fg: theme().textMuted }}>No title or directory matches · option+o to search transcripts</text>
         </Show>
