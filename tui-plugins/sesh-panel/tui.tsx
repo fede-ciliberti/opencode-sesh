@@ -2026,7 +2026,15 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   // every height here is explicit, so nothing overflows the box and the heading
   // can never be clipped away.
   const visibleListRows = createMemo(() => Math.min(listRows(), Math.max(1, contentLines())))
-  const extraRows = createMemo(() => (navActive() ? 2 : 0) + (searchActive() && filteredEntries().length === 0 ? 1 : 0))
+  // One line of hints, the widest variant that fits: the nav hint used to wrap
+  // and lose its tail on a narrow sidebar.
+  const NAV_HINTS = [
+    "↑↓ move · enter open · option+p preview · option+s/r pin · option+d delete · esc done",
+    "↑↓ move · enter open · option+p/s/r/d · esc done",
+    "↑↓ · enter · opt+… · esc",
+  ]
+  const navHint = () => NAV_HINTS.find((hint) => stringWidth(hint) <= headWidth()) ?? NAV_HINTS.at(-1)!
+  const extraRows = createMemo(() => (navActive() ? 1 : 0) + (searchActive() && filteredEntries().length === 0 ? 1 : 0))
   const sectionHeight = createMemo(() => (sectionCollapsed() ? 1 : SIDEBAR_CHROME_ROWS + visibleListRows() + extraRows()))
   let outerBox: { scrollTop: number } | undefined
   const innerBoxes = new Map<string, { scrollTop: number }>()
@@ -2371,7 +2379,6 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     <box flexDirection="column" paddingRight={1} width="100%" height={sectionHeight()} flexShrink={0}>
       <box
         flexDirection="row"
-        gap={1}
         height={1}
         ref={(ref: { width: number }) => (headBox = ref)}
         renderAfter={() => {
@@ -2381,16 +2388,20 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
           }
         }}
       >
-        <text flexShrink={1} wrapMode="none" overflow="hidden" onMouseDown={(event: { x: number; stopPropagation: () => void }) => {
-          // Sidebar-internal: keep this click from reaching the root handler,
-          // which would release the layer this click just activated.
+        {/* The triangle is its own hit target: no coordinate math, so it works
+            wherever the sidebar places the panel. */}
+        <text flexShrink={0} style={{ fg: theme().textMuted }} onMouseDown={(event: { stopPropagation: () => void }) => {
           event.stopPropagation()
-          // The triangle is the collapse control (the host's own sections work
-          // that way); the title keeps activating keyboard navigation.
-          if (event.x <= 2) toggleSection()
-          else if (!sectionCollapsed()) setNavActive((value) => !value)
+          toggleSection()
         }}>
-          <span style={{ fg: theme().textMuted }}>{sectionCollapsed() ? "▶ " : "▼ "}</span>
+          {sectionCollapsed() ? "▶ " : "▼ "}
+        </text>
+        <text flexShrink={1} wrapMode="none" overflow="hidden" onMouseDown={(event: { stopPropagation: () => void }) => {
+          // Sidebar-internal: keep this click from reaching the root handler,
+          // which would release the nav layer this toggle just activated.
+          event.stopPropagation()
+          if (!sectionCollapsed()) setNavActive((value) => !value)
+        }}>
           <b>Sessions</b>
           <span style={{ fg: theme().textMuted }}>
             {query().trim() ? ` (${filteredEntries().length}/${entries().length})` : ` (${entries().length})`}
@@ -2504,12 +2515,12 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
         </For>
         </scrollbox>
         <Show when={searchActive() && filteredEntries().length === 0}>
-            <text style={{ fg: theme().textMuted }}>No title or directory matches · option+o to search transcripts</text>
+            <text height={1} wrapMode="none" overflow="hidden" style={{ fg: theme().textMuted }}>
+              {truncate("No title or directory matches · option+o to search transcripts", headWidth())}
+            </text>
         </Show>
         <Show when={navActive()}>
-          <box height={2}>
-            <text style={{ fg: theme().textMuted }}>↑↓ move · enter open · option+p preview · option+s/r pin · option+d delete · esc done</text>
-          </box>
+          <text height={1} wrapMode="none" overflow="hidden" style={{ fg: theme().textMuted }}>{navHint()}</text>
         </Show>
       </Show>
       </Show>

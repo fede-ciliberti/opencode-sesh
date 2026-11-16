@@ -242,6 +242,25 @@ await check("sidebar opens on collapsed directories and grows by scrolling one l
   } finally { harness.close() }
 })
 
+// The triangle collapsed nothing at first: the handler compared the click's x
+// against the panel edge, and the real sidebar does not place the panel at x=0.
+// It is its own hit target now, so the gesture works wherever the panel sits.
+await check("clicking the sidebar triangle collapses the section, not the keyboard layer", async () => {
+  const harness = await createHarness({ width: 60, height: 30, sessions, source })
+  try {
+    assert.match(await harness.sidebar(), /▼ Sessions/)
+    await harness.setup.mockMouse.click(0, 0)
+    await harness.setup.flush()
+    const collapsed = harness.setup.captureCharFrame()
+    assert.match(collapsed, /▶ Sessions/, "the triangle collapses the section\n" + collapsed)
+    assert.ok(!collapsed.includes("search…"), "a collapsed section hides its search box\n" + collapsed)
+    assert.ok(!/· nav/.test(collapsed), "the triangle must not activate keyboard navigation\n" + collapsed)
+    await harness.setup.mockMouse.click(0, 0)
+    await harness.setup.flush()
+    assert.match(harness.setup.captureCharFrame(), /▼ Sessions/, "the triangle expands it again")
+  } finally { harness.close() }
+})
+
 await check("sidebar section stays bounded so a block below it keeps its room", async () => {
   const harness = await createHarness({ width: 60, height: 40, sessions, source })
   try {
