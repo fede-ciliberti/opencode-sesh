@@ -2313,7 +2313,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
         flexDirection="row"
         gap={1}
         height={1}
-        paddingLeft={3}
+        paddingLeft={2}
         paddingRight={1}
         backgroundColor={
           isActive(entry.id) && entry.id !== currentID()
@@ -2468,7 +2468,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
           <For each={sidebarRows()}>
           {(row) => {
             if (row.kind === "group") return (
-              <box flexDirection="row" height={1} paddingLeft={1} onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
+              <box flexDirection="row" height={1} onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
                 event.stopPropagation()
                 if (event.button === RIGHT_BUTTON) return
                 toggleGroup(row.dir)
