@@ -1865,10 +1865,14 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     return keep
   })
 
-  // A directory is open only when it was expanded by hand; the needs-input
-  // group is the exception (it is the alert list, so it starts open).
-  const isOpen = (dir: string) =>
-    dir === NEEDS_INPUT_DIR ? expandedDirs()[dir] !== false : expandedDirs()[dir] === true
+  // An explicit click always wins. Without one, the needs-input group starts
+  // open (it is the alert list) and a search opens every group — a match hidden
+  // behind a collapsed header is a match the user asked for and cannot see.
+  const rowOpen = (dir: string) => {
+    const explicit = expandedDirs()[dir]
+    if (explicit !== undefined) return explicit
+    return dir === NEEDS_INPUT_DIR || searchActive()
+  }
   const limitOf = (dir: string) => groupLimits()[dir] ?? SIDEBAR_SESSION_CHUNK
 
   const groups = createMemo(() => {
@@ -1901,7 +1905,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
       rows.push({ kind: "sessions", dir, entries, shown: entries.length, total })
     }
     if (pending.length > 0) {
-      const open = isOpen(NEEDS_INPUT_DIR)
+      const open = rowOpen(NEEDS_INPUT_DIR)
       rows.push({ kind: "group", dir: NEEDS_INPUT_DIR, label: "Needs input", count: pending.length, pinned: false, expanded: open })
       if (open) push(NEEDS_INPUT_DIR, pending, pending.length)
     }
@@ -1909,10 +1913,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     // A search lists every directory: the query already narrowed the set.
     const shown = search ? ordered : ordered.slice(0, dirLimit())
     for (const group of shown) {
-      // A search opens every group: the query already narrowed the sessions,
-      // and a match hidden behind a collapsed header is a match the user asked
-      // for and cannot see.
-      const open = search || isOpen(group.dir)
+      const open = rowOpen(group.dir)
       const pins = props.pins()
       rows.push({
         kind: "group",
@@ -1947,7 +1948,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     sidebarRows().reduce((total, row) => total + (row.kind === "group" ? 1 : groupBlockLines(row)), 0))
 
   const toggleGroup = (dir: string) => {
-    setExpandedDirs((prev) => ({ ...prev, [dir]: !isOpen(dir) }))
+    setExpandedDirs((prev) => ({ ...prev, [dir]: !rowOpen(dir) }))
   }
 
   const revealCursor = () => {

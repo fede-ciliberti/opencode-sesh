@@ -218,7 +218,9 @@ when opencode exits, the picker reopens with the query preserved.
   re-enter; wrapping is a deliberate deviation. A search does **not** disable it:
   the resting row reveals the match (`matchReveal` cuts the head and marks it
   with an ellipsis so the highlighted word is on screen without hovering), and
-  hovering still scrolls the whole label. It lists the
+  hovering still scrolls the whole label. Group open state: an explicit click
+  always wins; without one, needs-input starts open and a search opens every
+  group — so the header keeps collapsing while a query is active. It lists the
   newest `SIDEBAR_DIR_CHUNK` (10) directories **collapsed**; expanding one shows
   its newest `SIDEBAR_SESSION_CHUNK` (10) sessions inside a scrollbox of its own
   (`SIDEBAR_GROUP_ROWS` = 10, scrollbar visible), and the wheel at the end of

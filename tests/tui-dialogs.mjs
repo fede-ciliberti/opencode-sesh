@@ -318,6 +318,34 @@ await check("a filtered row reveals its match and still scrolls on hover", async
   } finally { harness.close() }
 })
 
+// A search opens every group, but the header click has to keep collapsing it:
+// the toggle wrote state the render ignored while a query was active.
+await check("a directory header still collapses while a query is active", async () => {
+  const two = [
+    session(0, "Un reflect en la sesion", "/work/alpha"),
+    session(1, "Otro reflect distinto", "/work/beta"),
+  ]
+  const harness = await createHarness({ width: 50, height: 24, sessions: two, source })
+  try {
+    await harness.sidebar()
+    await harness.setup.mockMouse.click(3, 2)
+    await harness.setup.flush()
+    for (const key of ["r", "e", "f", "l", "e", "c", "t"]) harness.press(key)
+    await harness.setup.flush()
+    const rows = (frame) => frame.split("\n").filter((line) => /• /.test(line)).length
+    const headerY = () => harness.setup.captureCharFrame().split("\n").findIndex((line) => line.includes("/work/alpha"))
+    assert.equal(rows(harness.setup.captureCharFrame()), 2, "the query lists both matches")
+    await harness.setup.mockMouse.click(3, headerY())
+    await harness.setup.flush()
+    const collapsed = harness.setup.captureCharFrame()
+    assert.equal(rows(collapsed), 1, "the clicked directory hides its matches\n" + collapsed)
+    assert.match(collapsed, /▸ \/work\/alpha/, "and shows the collapsed triangle\n" + collapsed)
+    await harness.setup.mockMouse.click(3, headerY())
+    await harness.setup.flush()
+    assert.equal(rows(harness.setup.captureCharFrame()), 2, "clicking again brings them back")
+  } finally { harness.close() }
+})
+
 await check("clicking the sidebar triangle collapses the section, not the keyboard layer", async () => {
   const harness = await createHarness({ width: 60, height: 30, sessions, source })
   try {
