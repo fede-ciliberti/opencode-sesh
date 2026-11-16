@@ -251,8 +251,10 @@ Option-P to preview, Option-S to pin a session, Option-R to pin its directory,
 Option-D to arm deletion, Esc to leave). Press Option-D again, `y`, or Enter to confirm
 an armed deletion; `n` or Esc cancels. Pinned
 directories rise first, while sessions within each directory are ordered by
-last update, newest first. The section lists every session and scrolls to fill
-the sidebar, so click **▾ hide** to collapse it when you need the room.
+last update, newest first. The section opens on a head of that list — the newest
+directories with a few sessions each, a pinned session and the open one always
+included — and a **Load more…** row doubles the budget when you want the rest,
+so click **▾ hide** to collapse it when you need the room.
 Sessions waiting on you (unanswered agent questions, runs stuck mid-tool) pin
 themselves to a **Needs input** group above the directories, with the count in
 the heading; `sesh --needs-input` lists the same set in the terminal. Row

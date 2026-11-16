@@ -200,9 +200,12 @@ when opencode exits, the picker reopens with the query preserved.
   hides the footer while open; the overlay portals to the renderer root at
   `CONTEXT_MENU_Z_INDEX` (3500), above OpenCode's dialog layer (3000) — a lower
   value renders the picker's menu behind the dialog; Esc closes the menu before the picker and Enter in the
-  search input must not submit while it is open. The sidebar section lists every
-  session without a row cap and flex-grows to fill the sidebar, with overflow
-  scrolling inside; the picker remains the place for transcript search.
+  search input must not submit while it is open. The sidebar section opens on a
+  head of the recent list — the newest `SIDEBAR_DIRS` directories with
+  `SIDEBAR_SESSIONS` sessions each, plus every pinned session and the open one
+  wherever they sit, and a `Load more…` row that doubles both budgets; a search
+  lifts the budgets — and flex-grows to fill the sidebar, scrolling inside; the
+  picker remains the place for transcript search.
   Sessions waiting on the user (unanswered questions, stuck runs) pin a
   **Needs input** group above the directories, with the count in the heading —
   same `NEEDS_INPUT_SQL` heuristic as `bin/sesh-waiting.sh`. Message payloads are
@@ -325,9 +328,10 @@ clear a dialog (`forkEntry` checks `alive`).
   shadow the composer afterwards. Sidebar-internal clicks stop propagation so
   the outside-click release cannot undo them.
   Cursor state is derived from `itemRows()`, so hover and cursor resolve to the
-  same row. The section lists every session with no row cap
-  (`tests/tui.mjs` asserts the cap stays out); overflow scrolls inside the
-  stretched section.
+  same row. The section lists a head of the list — the newest directories with
+  N sessions each, pins and the open session always included, and a
+  `Load more…` row that doubles the budgets (`tests/tui.mjs` covers `headOf`);
+  overflow scrolls inside the stretched section.
   Its heading never wraps. Sidebar/picker titles and picker excerpts use
   `Highlighted` with `fit` to reserve a blank cell and show an ellipsis at
   their measured width rather than hard-clipping against the age column.

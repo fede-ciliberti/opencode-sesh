@@ -48,7 +48,7 @@ function loadDataLayer(readExtraction = async () => { throw new Error("no local 
     "setTimeout",
     "setInterval", "clearInterval", "POLL_MS", "existsSync", "spawnSync", "spawn", "stringWidth",
     `${js}
-    return { fetchEntries, buildSearchIndex, buildSearchIndexRemote, createSessionPoll, resolveDbPath, openInCmuxWorkspace, inCmux, errorReason, withReason, fitDir, contextMenuWindow, SESSION_PAGE_LIMIT, SESSION_MAX, REMOTE_CONCURRENCY, TRANSCRIPT_BATCH, newestFirst, sidebarMarker, transcriptMatchExcerpt, filterPickerEntries, queryWaitingDetails, createDbClient, DB_WORKER_SOURCE, costRowsQuery, contextMenuItems, contextMenuBox, createContextMenu, TRANSCRIPT_BATCH_BYTES, transcriptCache, clearTranscriptCache, homeDirLabels, queryRunningIds, createRunningState }`,
+    return { fetchEntries, buildSearchIndex, buildSearchIndexRemote, createSessionPoll, resolveDbPath, openInCmuxWorkspace, inCmux, errorReason, withReason, fitDir, contextMenuWindow, SESSION_PAGE_LIMIT, SESSION_MAX, REMOTE_CONCURRENCY, TRANSCRIPT_BATCH, newestFirst, sidebarMarker, transcriptMatchExcerpt, filterPickerEntries, queryWaitingDetails, createDbClient, DB_WORKER_SOURCE, costRowsQuery, contextMenuItems, contextMenuBox, createContextMenu, TRANSCRIPT_BATCH_BYTES, transcriptCache, clearTranscriptCache, homeDirLabels, queryRunningIds, createRunningState, headOf, sidebarMoreLabel, SIDEBAR_DIRS, SIDEBAR_SESSIONS }`,
   )
   return factory(
     readExtraction,
@@ -415,13 +415,35 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   assert.equal(truncated, false)
 }
 
-// The sidebar lists every session without a row cap: all filtered entries
-// reach the tree, and overflow scrolls inside the stretched scrollbox.
+// The sidebar lists a head of the recent list, not everything: the newest
+// SIDEBAR_DIRS directories with SIDEBAR_SESSIONS sessions each, plus any
+// pinned session and the open one wherever they sit, and a "Load more…" row
+// that doubles both budgets. A search lifts the budgets.
 {
   const source = readFileSync(join(root, "tui-plugins/sesh-panel/tui.tsx"), "utf8")
-  assert.doesNotMatch(source, /slice\(0, SIDEBAR_LIMIT\)/)
-  assert.doesNotMatch(source, /sidebarRowBudget/)
-  assert.match(source, /const shownEntries = createMemo\(\(\) => filteredEntries\(\)\)/)
+  assert.match(source, /const SIDEBAR_DIRS = 6/)
+  assert.match(source, /const SIDEBAR_SESSIONS = 4/)
+  assert.match(source, /const moreRow = createMemo\(\(\) => sidebarTree\(\)\.more\)/, "the budget row lives outside the scrolled tree")
+  assert.match(source, /const loadMore = /)
+  assert.match(source, /const searchActive = \(\) => query\(\)\.trim\(\)\.length > 0/)
+  const layer = loadDataLayer()
+  assert.equal(layer.SIDEBAR_DIRS, 6)
+  assert.equal(layer.SIDEBAR_SESSIONS, 4)
+  const list = Array.from({ length: 9 }, (_, index) => ({
+    id: `ses_${index}`, title: `t${index}`, dir: "/w/p", updated: 900 - index * 10,
+  }))
+  const head = layer.headOf(list, 4, new Set(["ses_7"]))
+  assert.deepEqual(head.map((entry) => entry.id), ["ses_0", "ses_1", "ses_2", "ses_3", "ses_7"], "the newest N plus a pinned session, in list order")
+  assert.equal(head[4], list[7], "a kept session is the same record, not a copy")
+  assert.equal(layer.headOf(list, 4, new Set()).length, 4, "the budget alone caps the group")
+  assert.equal(layer.headOf(list, Number.POSITIVE_INFINITY, new Set()).length, 9, "a search lifts the budget")
+  assert.equal(layer.headOf(list, 0, new Set(["ses_8"])).length, 1, "the budget never hides a pin")
+  assert.equal(layer.sidebarMoreLabel(2, 5, 60), "Load more… · 2 directories · 5 sessions")
+  assert.equal(layer.sidebarMoreLabel(2, 5), "Load more… · 2 dirs · 5 sess", "a narrow row falls back to the compact units")
+  assert.equal(layer.sidebarMoreLabel(1, 1, 60), "Load more… · 1 directory · 1 session", "the counts pluralise")
+  assert.equal(layer.sidebarMoreLabel(4, 5, 20), "Load more… · 4 dirs", "a squeezed row keeps one unit rather than a chopped count")
+  assert.equal(layer.sidebarMoreLabel(2, 5, 11), "Load more…", "below that the action stands alone")
+  assert.equal(layer.sidebarMoreLabel(0, 3), "Load more… · 3 sessions", "a lifted directory budget leaves only sessions to report")
 }
 
 // The delete confirm targets the armed row wherever the pointer is: leaving

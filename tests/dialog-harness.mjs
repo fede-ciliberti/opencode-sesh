@@ -96,7 +96,7 @@ export const session = (index, title, dir = "/work/project") => ({
   time: { created: Date.now() - index * 60000 - 5000, updated: Date.now() - index * 60000 },
 })
 
-export async function createHarness({ width, height, sessions, waiting = [], costRows = [], transcript = "", source, indexDelay = 0 }) {
+export async function createHarness({ width, height, sessions, waiting = [], costRows = [], transcript = "", source, indexDelay = 0, pins = { sessions: [], directories: [] } }) {
   const restoreEnv = stripCmuxEnv()
   const panel = await loadPanel(source)
   const setup = await createTestRenderer({ width, height })
@@ -212,7 +212,7 @@ export async function createHarness({ width, height, sessions, waiting = [], cos
     async sidebar() {
       const entries = sessions.map((entry) => ({ id: entry.id, title: entry.title, dir: entry.directory, group: entry.directory, updated: entry.time.updated }))
       await render(() => panel.SidebarHost({ width, height, panelProps: {
-        api, pins: () => ({ sessions: [], directories: [] }), onTogglePin() {},
+        api, pins: () => pins, onTogglePin() {},
         poll(listener) { listener({ entries, waiting: new Map(waiting.map((id) => [id, "question"])), running: new Set(), failed: false }); return () => {} },
       } }), setup.renderer)
       await setup.flush()
@@ -223,7 +223,7 @@ export async function createHarness({ width, height, sessions, waiting = [], cos
     async home() {
       const entries = sessions.map((entry) => ({ id: entry.id, title: entry.title, dir: entry.directory, group: entry.directory, updated: entry.time.updated }))
       await render(() => panel.HomeHost({ width, height, panelProps: {
-        api, pins: () => ({ sessions: [], directories: [] }), onTogglePin() {},
+        api, pins: () => pins, onTogglePin() {},
         poll(listener) { listener({ entries, waiting: new Map(), running: new Set(), failed: false }); return () => {} },
       } }), setup.renderer)
       for (let i = 0; i < 5; i++) await setup.flush()

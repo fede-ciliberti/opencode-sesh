@@ -240,6 +240,39 @@ function homeDirLabels(dirs: string[], home: string): Map<string, string> {
   }))
 }
 
+// The sidebar shows a head of the recent list instead of everything: the
+// newest SIDEBAR_DIRS directories with SIDEBAR_SESSIONS sessions each, plus
+// any pinned session and the open one wherever they sit in their group, so a
+// pin or the ● marker never falls outside the budget. A "Load more…" row
+// doubles both budgets: even a deep list opens in a few clicks instead of
+// dozens. A search lifts the budgets — the user narrowed the list on purpose
+// and expects to see every match.
+const SIDEBAR_DIRS = 6
+const SIDEBAR_SESSIONS = 4
+
+function headOf(list: Entry[], sessions: number, keep: Set<string>): Entry[] {
+  return list.filter((entry, index) => index < sessions || keep.has(entry.id))
+}
+
+// The budget row says what is left without ever ending in a chopped count: it
+// falls back to a compact form, then to the unit that fits, then to the bare
+// action.
+function sidebarMoreLabel(dirs: number, sessions: number, width = SIDEBAR_GROUP_WIDTH): string {
+  const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+  const dirsLong = dirs > 0 ? count(dirs, "directory", "directories") : ""
+  const dirsShort = dirs > 0 ? count(dirs, "dir", "dirs") : ""
+  const sessionsLong = sessions > 0 ? count(sessions, "session", "sessions") : ""
+  const sessionsShort = sessions > 0 ? count(sessions, "sess", "sess") : ""
+  const forms = [
+    `Load more… · ${[dirsLong, sessionsLong].filter(Boolean).join(" · ")}`,
+    `Load more… · ${[dirsShort, sessionsShort].filter(Boolean).join(" · ")}`,
+    dirsShort && `Load more… · ${dirsShort}`,
+    sessionsShort && `Load more… · ${sessionsShort}`,
+    "Load more…",
+  ].filter((form): form is string => Boolean(form))
+  return forms.find((form) => stringWidth(form) <= width) ?? "Load more…"
+}
+
 function ago(ms: number): string {
   const s = Math.max(0, Math.floor((Date.now() - ms) / 1000))
   if (s < 60) return "now"
@@ -1499,6 +1532,10 @@ type TreeRow =
   | { kind: "group"; dir: string; label: string; count: number }
   | { kind: "item"; entry: Entry; last: boolean }
 
+// What the sidebar's budget hides: a sticky footer row, so the affordance is
+// never pushed below the scroll viewport exactly when it is needed.
+type SidebarMore = { dirs: number; sessions: number }
+
 type PickerRow =
   | { kind: "group"; dir: string; label: string; count: number; pinned: boolean; continued?: boolean }
   | { kind: "item"; entry: Entry; last: boolean }
@@ -1696,6 +1733,8 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   const [pendingDelete, setPendingDelete] = createSignal<string>()
   const [waiting, setWaiting] = createSignal<Map<string, string>>(new Map())
   const [polledRunning, setPolledRunning] = createSignal<Set<string>>(new Set())
+  const [dirLimit, setDirLimit] = createSignal(SIDEBAR_DIRS)
+  const [sessionLimit, setSessionLimit] = createSignal(SIDEBAR_SESSIONS)
   const isRunning = createRunningState((id) => props.api.state.session.status(id), polledRunning)
   let confirmTimer: ReturnType<typeof setTimeout> | undefined
   const currentID = createMemo(() => {
@@ -1729,14 +1768,29 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     return newestFirst(shownEntries().filter((entry) => ids.has(entry.id)))
   })
 
-  const tree = createMemo<TreeRow[]>(() => {
+  const searchActive = () => query().trim().length > 0
+  // A pin and the open session stay listed even when their group is longer
+  // than the budget.
+  const keptSessions = createMemo(() => {
+    const keep = new Set(props.pins().sessions)
+    const open = currentID()
+    if (open) keep.add(open)
+    return keep
+  })
+
+  const sidebarTree = createMemo<{ rows: TreeRow[]; more?: SidebarMore }>(() => {
     const rows: TreeRow[] = []
+    // Searching lists every match; otherwise the budgets hold.
+    const sessionBudget = searchActive() ? Number.POSITIVE_INFINITY : sessionLimit()
+    const dirBudget = searchActive() ? Number.POSITIVE_INFINITY : dirLimit()
+    const keep = keptSessions()
     const pending = waitingEntries()
+    const pendingHead = headOf(pending, sessionBudget, keep)
     if (pending.length > 0) {
       rows.push({ kind: "group", dir: NEEDS_INPUT_DIR, label: "Needs input", count: pending.length })
       if (!collapsed()[NEEDS_INPUT_DIR]) {
-        for (let i = 0; i < pending.length; i++) {
-          rows.push({ kind: "item", entry: pending[i], last: i === pending.length - 1 })
+        for (let i = 0; i < pendingHead.length; i++) {
+          rows.push({ kind: "item", entry: pendingHead[i], last: i === pendingHead.length - 1 })
         }
       }
     }
@@ -1755,16 +1809,31 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
           pins.directories.includes(group.dir) ? 2 : group.list.some((entry) => pins.sessions.includes(entry.id)) ? 1 : 0
         return rank(b) - rank(a) || b.updated - a.updated
       })
-    for (const group of ordered) {
-      const sessions = newestFirst(group.list)
+    const shownGroups = ordered.slice(0, dirBudget)
+    for (const group of shownGroups) {
+      const sessions = headOf(newestFirst(group.list), sessionBudget, keep)
       rows.push({ kind: "group", dir: group.dir, label: prettyDir(group.dir, home), count: group.list.length })
       if (collapsed()[group.dir]) continue
       for (let i = 0; i < sessions.length; i++) {
         rows.push({ kind: "item", entry: sessions[i], last: i === sessions.length - 1 })
       }
     }
-    return rows
+    // Counted on the whole list, not just the visible groups: sessions in a
+    // directory below the budget are hidden too.
+    const hiddenDirs = ordered.length - shownGroups.length
+    const hiddenSessions = pending.length - pendingHead.length
+      + ordered.reduce((sum, group) => sum + group.list.length - headOf(newestFirst(group.list), sessionBudget, keep).length, 0)
+    const more = hiddenDirs > 0 || hiddenSessions > 0 ? { dirs: hiddenDirs, sessions: hiddenSessions } : undefined
+    return { rows, more }
   })
+
+  const tree = createMemo(() => sidebarTree().rows)
+  const moreRow = createMemo(() => sidebarTree().more)
+
+  const loadMore = () => {
+    setDirLimit((value) => value * 2)
+    setSessionLimit((value) => value * 2)
+  }
 
   const toggleGroup = (dir: string) => {
     setCollapsed((prev) => ({ ...prev, [dir]: !prev[dir] }))
@@ -1886,6 +1955,8 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   }
 
   let sidebarScroll: { scrollTop: number } | undefined
+  let moreBox: { width: number } | undefined
+  const [moreWidth, setMoreWidth] = createSignal(SIDEBAR_GROUP_WIDTH)
 
   const deleteEntry = async (entry: Entry) => {
     cancelDelete()
@@ -2302,6 +2373,34 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
           }}
         </For>
         </scrollbox>
+        <Show when={moreRow()}>
+          {(more) => (
+            <box
+              flexDirection="row"
+              flexShrink={0}
+              paddingLeft={1}
+              paddingRight={1}
+              ref={(ref: { width: number }) => (moreBox = ref)}
+              renderAfter={() => {
+                if (moreBox && moreBox.width !== moreWidth()) {
+                  const measured = moreBox.width
+                  queueMicrotask(() => setMoreWidth(measured))
+                }
+              }}
+              onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
+                event.stopPropagation()
+                if (event.button === RIGHT_BUTTON) return
+                menu.close()
+                cancelDelete()
+                loadMore()
+              }}
+            >
+              <text flexGrow={1} flexShrink={1} overflow="hidden" wrapMode="none" style={{ fg: theme().textMuted }}>
+                {sidebarMoreLabel(more().dirs, more().sessions, Math.max(0, moreWidth() - 2))}
+              </text>
+            </box>
+          )}
+        </Show>
         <Show when={query().trim() && filteredEntries().length === 0}>
             <text style={{ fg: theme().textMuted }}>No title or directory matches · option+o to search transcripts</text>
         </Show>

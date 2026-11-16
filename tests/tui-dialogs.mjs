@@ -181,6 +181,45 @@ const rowAt = (frame, title) => {
   return { x: lines[y].indexOf(title), y }
 }
 
+await check("sidebar opens on a head of the list and Load more… doubles the budgets", async () => {
+  const harness = await createHarness({ width: 80, height: 30, sessions, source })
+  try {
+    const rows = (frame) => frame.split("\n").filter((line) => /[├└]/.test(line)).length
+    let frame = await harness.sidebar()
+    assert.equal(rows(frame), 4, "one directory shows its newest 4 sessions\n" + frame)
+    assert.match(frame, /Load more… · 8 sessions/, "the row counts what the budget hides\n" + frame)
+    const at = rowAt(frame, "Load more…")
+    await harness.setup.mockMouse.click(at.x, at.y)
+    await harness.setup.flush()
+    frame = harness.setup.captureCharFrame()
+    assert.equal(rows(frame), 8, "Load more… doubles the per-directory budget\n" + frame)
+    assert.match(frame, /Load more… · 4 sessions/, "the remaining count shrinks\n" + frame)
+    // A search lifts the budgets: every match is listed while the query holds.
+    const search = rowAt(frame, "search…")
+    await harness.setup.mockMouse.click(search.x, search.y)
+    await harness.setup.flush()
+    for (const key of ["s", "e", "s", "s", "i", "o", "n"]) harness.press(key)
+    await harness.setup.flush()
+    frame = harness.setup.captureCharFrame()
+    assert.equal(rows(frame), 12, "a query lists every match, not a head\n" + frame)
+    assert.ok(!frame.includes("Load more…"), "no budget row while searching\n" + frame)
+  } finally { harness.close() }
+})
+
+await check("sidebar keeps a pinned session and the open one inside the budget", async () => {
+  const harness = await createHarness({ width: 80, height: 30, sessions, source, pins: { sessions: [sessions[9].id], directories: [] } })
+  try {
+    // The open session is the sidebar's own route; a pinned session sits 10th.
+    harness.api.route.current = { name: "session", params: { sessionID: sessions[10].id } }
+    const frame = await harness.sidebar()
+    const rows = frame.split("\n").filter((line) => /[├└]/.test(line))
+    assert.equal(rows.length, 6, "four by budget plus the pinned and the open session\n" + frame)
+    assert.ok(frame.includes("Session number 9"), "the pinned session stays listed\n" + frame)
+    assert.ok(frame.includes("Session number 10"), "the open session stays listed\n" + frame)
+  } finally { harness.close() }
+})
+
+
 for (const [width, height] of [[44, 14], [80, 24]]) {
   for (const cmux of [false, true]) {
     await check(`picker right-click opens the action menu at ${width}x${height} ${cmux ? "inside" : "outside"} cmux`, async () => {
