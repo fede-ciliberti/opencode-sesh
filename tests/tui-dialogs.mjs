@@ -145,12 +145,13 @@ await check("picker preserves scope, needs-input filters and two-step delete", a
   } finally { harness.close() }
 })
 
-// One wheel notch, then enough idle for it to count as a separate push
-// (PRESSURE_MIN_GAP_MS keeps a flick's burst together).
+// One wheel notch, then a pause inside the pressure window: long enough to count
+// as its own push (PRESSURE_MIN_GAP_MS) and short enough to survive the decay
+// (PRESSURE_RESET_MS).
 const pushWheel = async (harness, x, y) => {
   await harness.setup.mockMouse.scroll(x, y, "down")
   await harness.setup.flush()
-  await new Promise((resolve) => setTimeout(resolve, 180))
+  await new Promise((resolve) => setTimeout(resolve, 110))
 }
 
 const sessionRows = (frame) => frame.split("\n").filter((line) => /[├└]/.test(line)).length

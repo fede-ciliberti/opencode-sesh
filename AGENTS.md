@@ -230,9 +230,10 @@ when opencode exits, the picker reopens with the query preserved.
   on screen, so the scrollbar reaches the bottom instead of a permanent sliver),
   the first `PRESSURE_WHEELS - 1` pushes at that edge only arm it — the gauge is
   text, one `·` per push in that row — and the third appends. Pressure decays
-  after `PRESSURE_RESET_MS`, drops on any upward wheel or movement, and a burst
-  closer than `PRESSURE_MIN_GAP_MS` counts once (a trackpad flick must not load
-  by itself). The wheel that loads is **consumed** (`event.stopPropagation()`):
+  after `PRESSURE_RESET_MS` (200 ms), drops on any upward wheel or movement, and a burst
+  closer than `PRESSURE_MIN_GAP_MS` (90 ms) counts once (a trackpad flick must not load
+  by itself). The gap must stay well under the reset: the usable window between
+  two counted pushes is `RESET - GAP`. The wheel that loads is **consumed** (`event.stopPropagation()`):
   otherwise it chains to the other list, the block slides away and the pulse
   fires off screen (`Renderable.processMouseEvent` stops walking up the tree
   only when the child stops propagation, and our handler runs before the
