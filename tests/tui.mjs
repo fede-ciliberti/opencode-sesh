@@ -48,7 +48,7 @@ function loadDataLayer(readExtraction = async () => { throw new Error("no local 
     "setTimeout",
     "setInterval", "clearInterval", "POLL_MS", "existsSync", "spawnSync", "spawn", "stringWidth",
     `${js}
-    return { fetchEntries, buildSearchIndex, buildSearchIndexRemote, createSessionPoll, resolveDbPath, openInCmuxWorkspace, inCmux, errorReason, withReason, fitDir, contextMenuWindow, SESSION_PAGE_LIMIT, SESSION_MAX, REMOTE_CONCURRENCY, TRANSCRIPT_BATCH, newestFirst, sidebarMarker, transcriptMatchExcerpt, filterPickerEntries, queryWaitingDetails, createDbClient, DB_WORKER_SOURCE, costRowsQuery, contextMenuItems, contextMenuBox, createContextMenu, TRANSCRIPT_BATCH_BYTES, transcriptCache, clearTranscriptCache, homeDirLabels, queryRunningIds, createRunningState , headOf, groupBlockLines, marqueeWindow, marqueeCycleWidth, matchReveal, SIDEBAR_DIR_CHUNK, SIDEBAR_SESSION_CHUNK, SIDEBAR_GROUP_ROWS }`,
+    return { fetchEntries, buildSearchIndex, buildSearchIndexRemote, createSessionPoll, resolveDbPath, openInCmuxWorkspace, inCmux, errorReason, withReason, fitDir, contextMenuWindow, SESSION_PAGE_LIMIT, SESSION_MAX, REMOTE_CONCURRENCY, TRANSCRIPT_BATCH, newestFirst, sidebarMarker, transcriptMatchExcerpt, filterPickerEntries, queryWaitingDetails, createDbClient, DB_WORKER_SOURCE, costRowsQuery, contextMenuItems, contextMenuBox, createContextMenu, TRANSCRIPT_BATCH_BYTES, transcriptCache, clearTranscriptCache, homeDirLabels, queryRunningIds, createRunningState , headOf, groupBlockLines, marqueeWindow, marqueeCycleWidth, matchReveal, pressureStep, SIDEBAR_DIR_CHUNK, SIDEBAR_SESSION_CHUNK, SIDEBAR_GROUP_ROWS }`,
   )
   return factory(
     readExtraction,
@@ -467,6 +467,14 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   assert.equal(layer.marqueeCycleWidth("abcdefghij"), 13)
   assert.equal(layer.marqueeWindow("abcdefghij", 10, 4), " · a", "the gap is part of the loop")
   assert.equal(layer.marqueeWindow("abcdefghij", 13, 4), "abcd", "the offset wraps after the gap")
+  // Autoload pressure: the first pushes at the end only arm it; the third fires
+  // and resets, so the next batch needs its own push.
+  assert.deepEqual(layer.pressureStep(0, "push"), { pressure: 1, fire: false })
+  assert.deepEqual(layer.pressureStep(1, "push"), { pressure: 2, fire: false })
+  assert.deepEqual(layer.pressureStep(2, "push"), { pressure: 0, fire: true }, "the third push loads and resets")
+  assert.deepEqual(layer.pressureStep(2, "release"), { pressure: 0, fire: false }, "scrolling up or moving drops the pressure")
+  assert.deepEqual(layer.pressureStep(0, "release"), { pressure: 0, fire: false })
+
   // A filtered row must show the match even when it sits past the cut.
   const long = "Revisar texto menu de comandos con el reflect nuevo"
   const revealed = layer.matchReveal(long, "reflect", 27)

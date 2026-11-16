@@ -254,6 +254,15 @@ const PULSE_TICKS = 12
 const PULSE_MS = 60
 const PULSE_CYCLES = 3
 const PULSE_MIN_ALPHA = 0.35
+// Autoload takes a deliberate push: the first wheels at the end of a list only
+// arm it (the scrollbar reaches the true bottom), and the batch lands on the
+// PRESSURE_WHEELS-th. Pressure decays on its own so a slow reader never loads by
+// accident.
+const PRESSURE_WHEELS = 3
+const PRESSURE_RESET_MS = 800
+// Wheel events closer than this belong to the same flick (a trackpad sends a
+// burst): they do not count as a separate push, or momentum alone would load.
+const PRESSURE_MIN_GAP_MS = 150
 // Peak of the wash that marks the rows a scroll just appended.
 const PULSE_PEAK = 0.18
 // An expanded directory renders fewer rows than a chunk, so there is always
@@ -274,6 +283,11 @@ const SIDEBAR_CHROME_ROWS = 4
 function headOf(list: Entry[], sessions: number, keep: Set<string>): Entry[] {
   return list.filter((entry, index) => index < sessions || keep.has(entry.id))
 }
+function sidebarRowLines(row: { kind: string; entries?: Entry[]; shown?: number; total?: number }): number {
+  if (row.kind !== "sessions") return 1
+  return groupBlockLines(row as { entries: Entry[]; shown: number; total: number })
+}
+
 function groupBlockLines(row: { entries: Entry[]; shown: number; total: number }): number {
   const inline = row.entries.length + (row.shown < row.total ? 1 : 0)
   return inline <= SIDEBAR_GROUP_ROWS ? inline : SIDEBAR_GROUP_ROWS
@@ -341,6 +355,15 @@ function matchReveal(label: string, query: string, width: number): string {
 // `style` is fixed at mount, so the pulse cannot fade the glyphs: it washes the
 // row behind them instead, where an alpha background does composite and the prop
 // is reactive.
+// One wheel at the end of a list. `push` adds pressure, `release` (wheel up, or
+// the list moved) drops it. Firing resets the count, so the next batch needs its
+// own push.
+function pressureStep(current: number, action: "push" | "release"): { pressure: number; fire: boolean } {
+  if (action === "release") return { pressure: 0, fire: false }
+  const next = current + 1
+  return next >= PRESSURE_WHEELS ? { pressure: 0, fire: true } : { pressure: next, fire: false }
+}
+
 function withAlpha(color: RGBA, alpha: number): RGBA {
   return RGBA.fromValues(color.r, color.g, color.b, Math.max(0, Math.min(1, alpha)))
 }
@@ -1671,6 +1694,7 @@ function createTranscriptPreview(api: TuiPluginApi) {
 type TreeRow =
   | { kind: "group"; dir: string; label: string; count: number; pinned: boolean; expanded: boolean }
   | { kind: "sessions"; dir: string; entries: Entry[]; shown: number; total: number }
+  | { kind: "more-dirs"; total: number }
 
 
 
@@ -1882,6 +1906,54 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     setFresh((prev) => ({ ids: new Set(ids), stamp: prev.stamp + 1 }))
   }
   const rowAlpha = (key: string) => (fresh().ids.has(key) ? pulse() : 1)
+  // Which list is armed and how many pushes it has. Only one can be armed: it is
+  // wherever the pointer is.
+  const [pressure, setPressure] = createSignal<{ key: string; count: number }>({ key: "", count: 0 })
+  let pressureTimer: ReturnType<typeof setTimeout> | undefined
+  const clearPressureTimer = () => {
+    if (pressureTimer) clearTimeout(pressureTimer)
+    pressureTimer = undefined
+  }
+  const releasePressure = () => {
+    clearPressureTimer()
+    if (pressure().count !== 0) setPressure({ key: "", count: 0 })
+  }
+  const armPressure = () => {
+    clearPressureTimer()
+    pressureTimer = setTimeout(releasePressure, PRESSURE_RESET_MS)
+  }
+  let lastPushAt = 0
+  const pushPressure = (key: string) => {
+    const now = Date.now()
+    const current = pressure().key === key ? pressure().count : 0
+    if (now - lastPushAt < PRESSURE_MIN_GAP_MS) {
+      // Same flick: keep the pressure where it is and keep the reset warm.
+      armPressure()
+      return false
+    }
+    lastPushAt = now
+    const step = pressureStep(current, "push")
+    setPressure({ key, count: step.pressure })
+    armPressure()
+    return step.fire
+  }
+  const pressureOf = (key: string) => (pressure().key === key ? pressure().count : 0)
+  // Bring the batch into view. Writing `scrollTop` right after the state change
+  // clamps to the old content height, so the offset is queued and applied from
+  // the scrollbox's own `renderAfter`, once the new rows are laid out.
+  const pendingStick = new Map<string, number>()
+  const stickToEnd = (key: string, target: number) => {
+    pendingStick.set(key, Math.max(0, target))
+  }
+  const applyStick = (key: string, box: { scrollTop: number } | undefined) => {
+    const target = pendingStick.get(key)
+    if (target === undefined || !box) return
+    box.scrollTop = target
+    pendingStick.delete(key)
+  }
+  // The gauge, in text: one dot per push already spent at the end.
+  const pressureDots = (key: string) => " ·".repeat(pressureOf(key))
+  onCleanup(clearPressureTimer)
   const isRunning = createRunningState((id) => props.api.state.session.status(id), polledRunning)
   let confirmTimer: ReturnType<typeof setTimeout> | undefined
   const currentID = createMemo(() => {
@@ -1985,6 +2057,11 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
       })
       if (open) push(group.dir, newestFirst(group.list), group.list.length)
     }
+    // A footer inside the list: it tells the reader there is more below and
+    // doubles as the pressure gauge while the wheel insists at the end.
+    if (!search && ordered.length > shown.length) {
+      rows.push({ kind: "more-dirs", total: ordered.length - shown.length })
+    }
     return rows
   })
 
@@ -1998,14 +2075,14 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   const layoutOf = (dir: string) => {
     let line = 0
     for (const row of sidebarRows()) {
-      const lines = row.kind === "group" ? 1 : groupBlockLines(row)
-      if (row.dir === dir) return { line, lines, row }
+      const lines = sidebarRowLines(row)
+      if (row.kind !== "more-dirs" && row.dir === dir) return { line, lines, row }
       line += lines
     }
     return undefined
   }
   const contentLines = createMemo(() =>
-    sidebarRows().reduce((total, row) => total + (row.kind === "group" ? 1 : groupBlockLines(row)), 0))
+    sidebarRows().reduce((total, row) => total + (row.kind === "group" ? 1 : sidebarRowLines(row)), 0))
 
   const toggleGroup = (dir: string) => {
     setExpandedDirs((prev) => ({ ...prev, [dir]: !rowOpen(dir) }))
@@ -2042,34 +2119,53 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   // SQLite read it becomes a query.
   const onDirectoryScroll = (event: { scroll?: { direction?: string }; stopPropagation?: () => void }) => {
     menu.close()
+    if (event.scroll?.direction === "up") {
+      releasePressure()
+      return
+    }
     if (event.scroll?.direction !== "down" || !outerBox) return
-    if (outerBox.scrollTop + visibleListRows() < contentLines() - 1) return
+    if (outerBox.scrollTop + visibleListRows() < contentLines()) {
+      releasePressure()
+      return
+    }
     if (searchActive() || dirLimit() >= dirCount()) return
     // This wheel is spent asking for rows: it must not also scroll whatever
     // holds the section.
     event.stopPropagation?.()
+    if (!pushPressure("dirs")) return
     const added = groups().slice(dirLimit(), dirLimit() + SIDEBAR_GROWTH).map((group) => `dir:${group.dir}`)
     setDirLimit((value) => value + SIDEBAR_GROWTH)
     markFresh(added)
+    // Stick to the end: the batch appears where the reader is looking.
+    stickToEnd("dirs", contentLines() + SIDEBAR_GROWTH - visibleListRows())
   }
   const listOf = (dir: string) =>
     dir === NEEDS_INPUT_DIR ? waitingEntries() : newestFirst(groups().find((group) => group.dir === dir)?.list ?? [])
 
   const onGroupScroll = (row: { dir: string; entries: Entry[]; shown: number; total: number }, event: { scroll?: { direction?: string }; stopPropagation?: () => void }) => {
+    if (event.scroll?.direction === "up") {
+      releasePressure()
+      return
+    }
     if (event.scroll?.direction !== "down") return
     const box = innerBoxes.get(row.dir)
     if (!box || searchActive()) return
     const content = row.entries.length + (row.shown < row.total ? 1 : 0)
-    if (box.scrollTop + SIDEBAR_GROUP_ROWS < content - 1) return
+    if (box.scrollTop + SIDEBAR_GROUP_ROWS < content) {
+      releasePressure()
+      return
+    }
     const current = limitOf(row.dir)
     if (current >= row.total) return
     // At the end of the block with rows still to come: consume the wheel here.
     // Without this the event chains to the directory list, the block slides out
     // of view and the pulse happens off screen.
     event.stopPropagation?.()
+    if (!pushPressure(`dir:${row.dir}`)) return
     const added = listOf(row.dir).slice(current, current + SIDEBAR_GROWTH).map((entry) => entry.id)
     setGroupLimits((prev) => ({ ...prev, [row.dir]: current + SIDEBAR_GROWTH }))
     markFresh(added)
+    stickToEnd(`dir:${row.dir}`, current + SIDEBAR_GROWTH + (current + SIDEBAR_GROWTH < row.total ? 1 : 0) - SIDEBAR_GROUP_ROWS)
   }
 
   const toggleSection = () => {
@@ -2661,6 +2757,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
           flexShrink={0}
           verticalScrollbarOptions={{ visible: contentLines() > visibleListRows() }}
           horizontalScrollbarOptions={{ visible: false }}
+          renderAfter={() => applyStick("dirs", outerBox)}
           onMouseScroll={onDirectoryScroll}
         >
           <For each={sidebarRows()}>
@@ -2691,6 +2788,11 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
                 </text>
               </box>
             )
+            if (row.kind === "more-dirs") return (
+              <text height={1} style={{ fg: theme().textMuted }}>
+                {`▾ ${row.total} more director${row.total === 1 ? "y" : "ies"}…${pressureDots("dirs")}`}
+              </text>
+            )
             const sessions = (
               <For each={row.entries}>
                 {(entry, index) => sessionRow(entry, index() === row.entries.length - 1 && row.shown >= row.total)}
@@ -2698,7 +2800,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
             )
             const more = (
               <Show when={row.shown < row.total}>
-                <text height={1} style={{ fg: theme().textMuted }}>{`   ▾ ${row.total - row.shown} more…`}</text>
+                <text height={1} style={{ fg: theme().textMuted }}>{`   ▾ ${row.total - row.shown} more…${pressureDots(`dir:${row.dir}`)}`}</text>
               </Show>
             )
             if (row.entries.length + (row.shown < row.total ? 1 : 0) <= SIDEBAR_GROUP_ROWS) {
@@ -2715,6 +2817,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
                 flexShrink={0}
                 verticalScrollbarOptions={{ visible: true }}
                 horizontalScrollbarOptions={{ visible: false }}
+                renderAfter={() => applyStick(`dir:${row.dir}`, innerBoxes.get(row.dir))}
                 onMouseScroll={(event: { scroll?: { direction?: string } }) => onGroupScroll(row, event)}
               >
                 {sessions}
