@@ -225,7 +225,11 @@ when opencode exits, the picker reopens with the query preserved.
   its newest `SIDEBAR_SESSION_CHUNK` (10) sessions inside a scrollbox of its own
   (`SIDEBAR_GROUP_ROWS` = 10, scrollbar visible), and the wheel at the end of
   either list appends `SIDEBAR_GROWTH` (3) rows **one level at a time** — never
-  both (a search lifts the chunks). The appended rows pulse: three cosine waves
+  both (a search lifts the chunks). The wheel that loads is **consumed**
+  (`event.stopPropagation()`): otherwise it chains to the other list, the block
+  slides away and the pulse fires off screen (`Renderable.processMouseEvent`
+  stops walking up the tree only when the child stops propagation, and our
+  handler runs before the scrollbox's own). The appended rows pulse: three cosine waves
   over ~700 ms. The pulse washes the **row background**, not the glyphs —
   `@opentui/solid` applies a text run's `style` once at mount and the foreground
   alpha is not composited on this path, so a text fade paints solid (verified

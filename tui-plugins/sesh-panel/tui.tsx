@@ -2040,11 +2040,14 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   // Scroll-driven growth: the wheel at the end of a list asks for the next
   // chunk. Data is local today, so the chunk lands immediately; with the paged
   // SQLite read it becomes a query.
-  const onDirectoryScroll = (event: { scroll?: { direction?: string } }) => {
+  const onDirectoryScroll = (event: { scroll?: { direction?: string }; stopPropagation?: () => void }) => {
     menu.close()
     if (event.scroll?.direction !== "down" || !outerBox) return
     if (outerBox.scrollTop + visibleListRows() < contentLines() - 1) return
     if (searchActive() || dirLimit() >= dirCount()) return
+    // This wheel is spent asking for rows: it must not also scroll whatever
+    // holds the section.
+    event.stopPropagation?.()
     const added = groups().slice(dirLimit(), dirLimit() + SIDEBAR_GROWTH).map((group) => `dir:${group.dir}`)
     setDirLimit((value) => value + SIDEBAR_GROWTH)
     markFresh(added)
@@ -2052,7 +2055,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   const listOf = (dir: string) =>
     dir === NEEDS_INPUT_DIR ? waitingEntries() : newestFirst(groups().find((group) => group.dir === dir)?.list ?? [])
 
-  const onGroupScroll = (row: { dir: string; entries: Entry[]; shown: number; total: number }, event: { scroll?: { direction?: string } }) => {
+  const onGroupScroll = (row: { dir: string; entries: Entry[]; shown: number; total: number }, event: { scroll?: { direction?: string }; stopPropagation?: () => void }) => {
     if (event.scroll?.direction !== "down") return
     const box = innerBoxes.get(row.dir)
     if (!box || searchActive()) return
@@ -2060,6 +2063,10 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     if (box.scrollTop + SIDEBAR_GROUP_ROWS < content - 1) return
     const current = limitOf(row.dir)
     if (current >= row.total) return
+    // At the end of the block with rows still to come: consume the wheel here.
+    // Without this the event chains to the directory list, the block slides out
+    // of view and the pulse happens off screen.
+    event.stopPropagation?.()
     const added = listOf(row.dir).slice(current, current + SIDEBAR_GROWTH).map((entry) => entry.id)
     setGroupLimits((prev) => ({ ...prev, [row.dir]: current + SIDEBAR_GROWTH }))
     markFresh(added)

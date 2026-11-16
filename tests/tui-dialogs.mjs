@@ -383,6 +383,32 @@ await check("autoload appends three rows and pulses them", async () => {
   } finally { harness.close() }
 })
 
+// The wheel that asks for a chunk must not chain to the directory list: if it
+// does, the block slides out of view and the pulse fires off screen.
+await check("loading a chunk keeps the block in place", async () => {
+  const deep = Array.from({ length: 30 }, (_, index) => session(index, `Deep session ${index}`, "/work/deep"))
+  const others = Array.from({ length: 12 }, (_, index) => session(100 + index, `Other ${index}`, `/work/p${index}`))
+  const harness = await createHarness({ width: 46, height: 40, sessions: [...deep, ...others], source })
+  try {
+    const head = rowAt(await harness.sidebar(), "▸ /work/deep")
+    await harness.setup.mockMouse.click(head.x, head.y)
+    await harness.setup.flush()
+    const headerLine = () => harness.setup.captureCharFrame().split("\n").findIndex((line) => line.includes("/work/deep"))
+    const visible = () => (harness.setup.captureCharFrame().split("\n")
+      .filter((line) => /Deep session \d/.test(line)).at(-1) ?? "").match(/Deep session (\d+)/)?.[1]
+    for (let turn = 0; turn < 3; turn++) {
+      await harness.setup.mockMouse.scroll(20, 6, "down")
+      await harness.setup.flush()
+    }
+    const before = { header: headerLine(), last: visible() }
+    await harness.setup.mockMouse.scroll(20, 6, "down")
+    await harness.setup.renderOnce()
+    const after = { header: headerLine(), last: visible() }
+    assert.equal(after.header, before.header, "the block stays where it was")
+    assert.ok(Number(after.last) > Number(before.last), `the chunk is revealed (${before.last} -> ${after.last})`)
+  } finally { harness.close() }
+})
+
 await check("clicking the sidebar triangle collapses the section, not the keyboard layer", async () => {
   const harness = await createHarness({ width: 60, height: 30, sessions, source })
   try {
