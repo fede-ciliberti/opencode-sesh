@@ -254,8 +254,11 @@ const SIDEBAR_GROUP_ROWS = 10
 // keeps a section rendered below it — another plugin — reachable.
 const SIDEBAR_MIN_ROWS = 14
 const SIDEBAR_MAX_ROWS = 26
-// Rows the section spends on its own chrome: heading and search box.
-const SIDEBAR_CHROME_ROWS = 2
+// Rows the section spends on its own chrome: heading, a blank row, the search
+// box and another blank row. The three pieces read as separate blocks instead
+// of one congested stack; every one of them is a full row, so the geometry stays
+// exact (see SIDEBAR_CHROME_ROWS).
+const SIDEBAR_CHROME_ROWS = 4
 
 function headOf(list: Entry[], sessions: number, keep: Set<string>): Entry[] {
   return list.filter((entry, index) => index < sessions || keep.has(entry.id))
@@ -2380,6 +2383,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
         </text>
       </box>
       <Show when={!sectionCollapsed()}>
+      <box height={1} flexShrink={0} />
       <Show
         when={entries().length > 0}
         fallback={
@@ -2420,6 +2424,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
             </text>
           </Show>
         </box>
+        <box height={1} flexShrink={0} />
         <scrollbox
           ref={(node: { scrollTop: number }) => (outerBox = node)}
           height={visibleListRows()}
