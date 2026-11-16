@@ -2030,6 +2030,17 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   const sectionHeight = createMemo(() => (sectionCollapsed() ? 1 : SIDEBAR_CHROME_ROWS + visibleListRows() + extraRows()))
   let outerBox: { scrollTop: number } | undefined
   const innerBoxes = new Map<string, { scrollTop: number }>()
+  let headBox: { width: number } | undefined
+  const [headWidth, setHeadWidth] = createSignal(0)
+  // The heading is one line: the needs-input hint shortens to its count before
+  // the row gets chopped mid-word on a narrow sidebar.
+  const needsInputHint = () => {
+    const count = waitingEntries().length
+    if (count === 0) return ""
+    const base = stringWidth(`${sectionCollapsed() ? "▶" : "▼"} Sessions (${entries().length})${navActive() ? " · nav" : ""}`)
+    const full = ` · ${count} ${count === 1 ? "needs" : "need"} input`
+    return base + stringWidth(full) <= headWidth() ? full : ` · ${count}`
+  }
 
   const deleteEntry = async (entry: Entry) => {
     cancelDelete()
@@ -2294,7 +2305,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
         flexDirection="row"
         gap={1}
         height={1}
-        paddingLeft={1}
+        paddingLeft={3}
         paddingRight={1}
         backgroundColor={
           isActive(entry.id) && entry.id !== currentID()
@@ -2327,8 +2338,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
           }
         }}
       >
-        <text flexShrink={0}>
-          <span style={{ fg: theme().textMuted }}>{last ? "└" : "├"}</span>
+        <text flexShrink={0} width={1}>
           <span
             style={{
               fg: isPendingDelete(entry.id)
@@ -2340,7 +2350,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
                     : theme().textMuted,
             }}
           >
-            {marker() === "current" ? "●" : marker() === "running" ? SIDEBAR_SPINNER[spinFrame()] : isActive(entry.id) ? "▸" : "○"}
+            {marker() === "current" ? "●" : marker() === "running" ? SIDEBAR_SPINNER[spinFrame()] : isActive(entry.id) ? "▸" : "•"}
           </span>
         </text>
         <Highlighted
@@ -2359,27 +2369,36 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
 
   return (
     <box flexDirection="column" paddingRight={1} width="100%" height={sectionHeight()} flexShrink={0}>
-      <box flexDirection="row" justifyContent="space-between" gap={1} height={1}>
-        <text flexShrink={1} wrapMode="none" overflow="hidden" onMouseDown={(event: { stopPropagation: () => void }) => {
+      <box
+        flexDirection="row"
+        gap={1}
+        height={1}
+        ref={(ref: { width: number }) => (headBox = ref)}
+        renderAfter={() => {
+          if (headBox && headBox.width !== headWidth()) {
+            const measured = headBox.width
+            queueMicrotask(() => setHeadWidth(measured))
+          }
+        }}
+      >
+        <text flexShrink={1} wrapMode="none" overflow="hidden" onMouseDown={(event: { x: number; stopPropagation: () => void }) => {
           // Sidebar-internal: keep this click from reaching the root handler,
-          // which would release the nav layer this toggle just activated.
+          // which would release the layer this click just activated.
           event.stopPropagation()
-          if (!sectionCollapsed()) setNavActive((value) => !value)
+          // The triangle is the collapse control (the host's own sections work
+          // that way); the title keeps activating keyboard navigation.
+          if (event.x <= 2) toggleSection()
+          else if (!sectionCollapsed()) setNavActive((value) => !value)
         }}>
+          <span style={{ fg: theme().textMuted }}>{sectionCollapsed() ? "▶ " : "▼ "}</span>
           <b>Sessions</b>
           <span style={{ fg: theme().textMuted }}>
             {query().trim() ? ` (${filteredEntries().length}/${entries().length})` : ` (${entries().length})`}
           </span>
           <span style={{ fg: theme().accent }}>{navActive() ? " · nav" : ""}</span>
           <Show when={waitingEntries().length > 0}>
-            <span style={{ fg: theme().warning }}> · {waitingEntries().length} {waitingEntries().length === 1 ? "needs" : "need"} input</span>
+            <span style={{ fg: theme().warning }}>{needsInputHint()}</span>
           </Show>
-        </text>
-        <text flexShrink={0} style={{ fg: theme().textMuted }} onMouseDown={(event: { stopPropagation: () => void }) => {
-          event.stopPropagation()
-          toggleSection()
-        }}>
-          {sectionCollapsed() ? "▸ show" : "▾ hide"}
         </text>
       </box>
       <Show when={!sectionCollapsed()}>
@@ -2436,7 +2455,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
           <For each={sidebarRows()}>
           {(row) => {
             if (row.kind === "group") return (
-              <box flexDirection="row" height={1} onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
+              <box flexDirection="row" height={1} paddingLeft={1} onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
                 event.stopPropagation()
                 if (event.button === RIGHT_BUTTON) return
                 toggleGroup(row.dir)

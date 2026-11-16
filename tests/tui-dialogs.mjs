@@ -89,8 +89,8 @@ for (const width of [24, 30, 36, 42, 60]) {
       const frame = await harness.sidebar()
       assert.ok(frame.includes("Sessions"), frame)
       assert.ok(!frame.split("\n").some((line) => /^\s*input\s*$/.test(line)), frame)
-      const rows = frame.split("\n").filter((line) => /[├└]/.test(line))
-      assert.ok(rows.length, frame)
+      const rows = frame.split("\n").filter((line) => /• /.test(line))
+      assert.ok(rows.length, "needs-input rows are listed\n" + frame)
       for (const row of rows) assert.match(row, /…\s+\S+\s*$/, frame)
     } finally { harness.close() }
   })
@@ -204,7 +204,7 @@ await check("sidebar opens on collapsed directories and grows by scrolling one l
   ]
   const harness = await createHarness({ width: 70, height: 40, sessions: manyDirs, source })
   try {
-    const sessionRows = (frame) => frame.split("\n").filter((line) => /[├└]/.test(line)).length
+    const sessionRows = (frame) => frame.split("\n").filter((line) => /• /.test(line)).length
     let frame = await harness.sidebar()
     assert.ok(!frame.includes("Deep session"), "directories start collapsed\n" + frame)
     assert.equal((frame.match(/▸ /g) ?? []).length, 10, "the newest 10 directories, all collapsed\n" + frame)

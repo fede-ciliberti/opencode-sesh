@@ -12,7 +12,8 @@ Bocetos en `docs/mockups/`: el HTML es la fuente versionable, el PNG es derivado
 
 | Pieza | Regla |
 |---|---|
-| Cabecera | La que ya tenía el plugin: título con el total, sesiones que esperan respuesta, buscador, **▾ hide** |
+| Cabecera | Estilo del host (MCP): **▼/▶** + `Sessions` en negrita + total tenue; el triángulo colapsa la sección y el título activa la navegación por teclado. Debajo, el buscador |
+| Filas | Bullet `•` (● la abierta, spinner la que corre, ▸ el cursor), título y edad tenue a la derecha — sin líneas de árbol |
 | Alturas | **Explícitas** en todos los niveles (sección, lista, bloque de grupo). La sección mide como máximo media terminal (14–26 filas) y nunca crece con el contenido |
 | Directorios | Los últimos `SIDEBAR_DIR_CHUNK` (10), **colapsados**; primero fijados, después por recencia |
 | Sesiones | Al expandir, las últimas `SIDEBAR_SESSION_CHUNK` (10) dentro de un bloque con `SIDEBAR_GROUP_ROWS` (10) filas y barra propia |
@@ -34,7 +35,7 @@ empuja al padre.
 
 ## Estados del boceto
 
-### 1. Colapsado (al abrir)
+### 1. Directorios colapsados (estado inicial)
 
 ![Boceto — directorios colapsados](mockups/sidebar-1-hoy.png)
 

@@ -255,8 +255,8 @@ last update, newest first. The section lists the newest **10 directories
 collapsed**: click one to expand its newest 10 sessions in a block that scrolls
 on its own, and the wheel at the end of either list pulls the next 10 (one level
 at a time, never both). The section never takes more than half the sidebar and
-scrolls inside, so the blocks around it stay reachable; click **▾ hide** to
-collapse it when you need the room.
+scrolls inside, so the blocks around it stay reachable; click the **▼** triangle
+the way the host's own sections work to collapse it when you need the room.
 Sessions waiting on you (unanswered agent questions, runs stuck mid-tool) pin
 themselves to a **Needs input** group above the directories, with the count in
 the heading; `sesh --needs-input` lists the same set in the terminal. Row

@@ -200,7 +200,11 @@ when opencode exits, the picker reopens with the query preserved.
   hides the footer while open; the overlay portals to the renderer root at
   `CONTEXT_MENU_Z_INDEX` (3500), above OpenCode's dialog layer (3000) — a lower
   value renders the picker's menu behind the dialog; Esc closes the menu before the picker and Enter in the
-  search input must not submit while it is open. The sidebar section lists the
+  search input must not submit while it is open. The sidebar heading follows the
+  host's own section style — `▼`/`▶`, `Sessions` in bold, the total muted, no
+  separate hide control: the triangle collapses the section and the title
+  activates keyboard navigation. Session rows are bullets (`•` idle, `●` the open
+  one, a spinner while running, `▸` for the cursor), not tree branches. It lists the
   newest `SIDEBAR_DIR_CHUNK` (10) directories **collapsed**; expanding one shows
   its newest `SIDEBAR_SESSION_CHUNK` (10) sessions inside a scrollbox of its own
   (`SIDEBAR_GROUP_ROWS` = 10, scrollbar visible), and the wheel at the end of
