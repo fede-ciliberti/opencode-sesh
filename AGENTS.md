@@ -224,8 +224,13 @@ when opencode exits, the picker reopens with the query preserved.
   newest `SIDEBAR_DIR_CHUNK` (10) directories **collapsed**; expanding one shows
   its newest `SIDEBAR_SESSION_CHUNK` (10) sessions inside a scrollbox of its own
   (`SIDEBAR_GROUP_ROWS` = 10, scrollbar visible), and the wheel at the end of
-  either list appends a chunk **one level at a time** — never both (a search
-  lifts the chunks). Every height is explicit (`sectionHeight()`,
+  either list appends `SIDEBAR_GROWTH` (3) rows **one level at a time** — never
+  both (a search lifts the chunks). The appended rows pulse: three cosine waves
+  over ~700 ms. The pulse washes the **row background**, not the glyphs —
+  `@opentui/solid` applies a text run's `style` once at mount and the foreground
+  alpha is not composited on this path, so a text fade paints solid (verified
+  with a control: `backgroundColor` on a box *is* reactive and its alpha
+  composites, so that is where the opacity goes). Every height is explicit (`sectionHeight()`,
   `visibleListRows()`, the group box), so the section never grows past its
   budget: half the terminal between 14 and 26 rows. The slot gives the panel
   **no bounded height**, so an implicit-height section grew with its content,

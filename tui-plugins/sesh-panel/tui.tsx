@@ -245,6 +245,17 @@ function homeDirLabels(dirs: string[], home: string): Map<string, string> {
 // lists grow by a chunk when the wheel asks for more at their end.
 const SIDEBAR_DIR_CHUNK = 10
 const SIDEBAR_SESSION_CHUNK = 10
+// A scroll at the end of a list appends this many rows. Small on purpose: the
+// new rows pulse, and a short batch is what makes the pulse read as "these just
+// arrived" instead of a wall of rows changing.
+const SIDEBAR_GROWTH = 3
+// Three cosine pulses down to PULSE_MIN_ALPHA and back (organic, not a blink).
+const PULSE_TICKS = 12
+const PULSE_MS = 60
+const PULSE_CYCLES = 3
+const PULSE_MIN_ALPHA = 0.35
+// Peak of the wash that marks the rows a scroll just appended.
+const PULSE_PEAK = 0.18
 // An expanded directory renders fewer rows than a chunk, so there is always
 // somewhere left to scroll and ask for the next chunk.
 const SIDEBAR_GROUP_ROWS = 10
@@ -324,6 +335,46 @@ function matchReveal(label: string, query: string, width: number): string {
     walked += stringWidth(cell)
   }
   return `…${label.slice(dropped.length)}`
+}
+
+// Foreground alpha is not composited in this render path and a text run's
+// `style` is fixed at mount, so the pulse cannot fade the glyphs: it washes the
+// row behind them instead, where an alpha background does composite and the prop
+// is reactive.
+function withAlpha(color: RGBA, alpha: number): RGBA {
+  return RGBA.fromValues(color.r, color.g, color.b, Math.max(0, Math.min(1, alpha)))
+}
+
+// Fades the rows a scroll just appended: three soft pulses, then back to normal.
+// The token changes with every batch, so a second scroll restarts the animation.
+function createPulse(token: () => number): () => number {
+  const [alpha, setAlpha] = createSignal(1)
+  let timer: ReturnType<typeof setInterval> | undefined
+  createEffect(() => {
+    const stamp = token()
+    if (timer) {
+      clearInterval(timer)
+      timer = undefined
+    }
+    setAlpha(1)
+    if (!stamp) return
+    let tick = 0
+    timer = setInterval(() => {
+      tick += 1
+      const phase = tick / PULSE_TICKS
+      const wave = 0.5 + 0.5 * Math.cos(2 * Math.PI * PULSE_CYCLES * phase)
+      setAlpha(PULSE_MIN_ALPHA + (1 - PULSE_MIN_ALPHA) * wave)
+      if (tick >= PULSE_TICKS) {
+        clearInterval(timer)
+        timer = undefined
+        setAlpha(1)
+      }
+    }, PULSE_MS)
+  })
+  onCleanup(() => {
+    if (timer) clearInterval(timer)
+  })
+  return alpha
 }
 
 function createMarquee(active: () => boolean, label: () => string): () => number {
@@ -1456,6 +1507,7 @@ function Highlighted(props: {
   matchColor: RGBA
   bold?: boolean
   fit?: boolean
+
 }) {
   const [width, setWidth] = createSignal(Number.POSITIVE_INFINITY)
   let element: { width: number } | undefined
@@ -1822,6 +1874,14 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   const [polledRunning, setPolledRunning] = createSignal<Set<string>>(new Set())
   const [dirLimit, setDirLimit] = createSignal(SIDEBAR_DIR_CHUNK)
   const [groupLimits, setGroupLimits] = createSignal<Record<string, number>>({})
+  // Rows the last scroll appended, so the pulse paints them and nothing else.
+  const [fresh, setFresh] = createSignal<{ ids: Set<string>; stamp: number }>({ ids: new Set(), stamp: 0 })
+  const pulse = createPulse(() => fresh().stamp)
+  const markFresh = (ids: string[]) => {
+    if (ids.length === 0) return
+    setFresh((prev) => ({ ids: new Set(ids), stamp: prev.stamp + 1 }))
+  }
+  const rowAlpha = (key: string) => (fresh().ids.has(key) ? pulse() : 1)
   const isRunning = createRunningState((id) => props.api.state.session.status(id), polledRunning)
   let confirmTimer: ReturnType<typeof setTimeout> | undefined
   const currentID = createMemo(() => {
@@ -1985,16 +2045,24 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     if (event.scroll?.direction !== "down" || !outerBox) return
     if (outerBox.scrollTop + visibleListRows() < contentLines() - 1) return
     if (searchActive() || dirLimit() >= dirCount()) return
-    setDirLimit((value) => value + SIDEBAR_DIR_CHUNK)
+    const added = groups().slice(dirLimit(), dirLimit() + SIDEBAR_GROWTH).map((group) => `dir:${group.dir}`)
+    setDirLimit((value) => value + SIDEBAR_GROWTH)
+    markFresh(added)
   }
+  const listOf = (dir: string) =>
+    dir === NEEDS_INPUT_DIR ? waitingEntries() : newestFirst(groups().find((group) => group.dir === dir)?.list ?? [])
+
   const onGroupScroll = (row: { dir: string; entries: Entry[]; shown: number; total: number }, event: { scroll?: { direction?: string } }) => {
     if (event.scroll?.direction !== "down") return
     const box = innerBoxes.get(row.dir)
     if (!box || searchActive()) return
     const content = row.entries.length + (row.shown < row.total ? 1 : 0)
     if (box.scrollTop + SIDEBAR_GROUP_ROWS < content - 1) return
-    if (limitOf(row.dir) >= row.total) return
-    setGroupLimits((prev) => ({ ...prev, [row.dir]: limitOf(row.dir) + SIDEBAR_SESSION_CHUNK }))
+    const current = limitOf(row.dir)
+    if (current >= row.total) return
+    const added = listOf(row.dir).slice(current, current + SIDEBAR_GROWTH).map((entry) => entry.id)
+    setGroupLimits((prev) => ({ ...prev, [row.dir]: current + SIDEBAR_GROWTH }))
+    markFresh(added)
   }
 
   const toggleSection = () => {
@@ -2441,7 +2509,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
         backgroundColor={
           isActive(entry.id) && entry.id !== currentID()
             ? theme().backgroundElement
-            : RGBA.fromInts(0, 0, 0, 0)
+            : withAlpha(theme().text, PULSE_PEAK * (1 - rowAlpha(entry.id)))
         }
         onMouseOver={() => {
           setHovered(entry.id)
@@ -2594,6 +2662,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
               <box
                 flexDirection="row"
                 height={1}
+                backgroundColor={withAlpha(theme().text, PULSE_PEAK * (1 - rowAlpha(`dir:${row.dir}`)))}
                 onMouseOver={() => {
                   setHoveredGroup(row.dir)
                   setHovered(undefined)
@@ -2606,7 +2675,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
                   toggleGroup(row.dir)
                 }}
               >
-                <text flexGrow={1} flexShrink={1} wrapMode="none">
+                <text flexGrow={1} flexShrink={1} wrapMode="none" style={{ fg: theme().text }}>
                   <span style={{ fg: theme().textMuted }}>{row.expanded ? "▾ " : "▸ "}</span>
                   <b>{groupTitle(row)}</b>
                 </text>

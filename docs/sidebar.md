@@ -20,7 +20,7 @@ Bocetos en `docs/mockups/`: el HTML es la fuente versionable, el PNG es derivado
 | Alturas | **Explícitas** en todos los niveles (sección, lista, bloque de grupo). La sección mide como máximo media terminal (14–26 filas) y nunca crece con el contenido |
 | Directorios | Los últimos `SIDEBAR_DIR_CHUNK` (10), **colapsados**; primero fijados, después por recencia |
 | Sesiones | Al expandir, las últimas `SIDEBAR_SESSION_CHUNK` (10) dentro de un bloque con `SIDEBAR_GROUP_ROWS` (10) filas y barra propia |
-| Autoload | La rueda al final de **cada nivel** agrega 10 de ese nivel; nunca las dos cosas a la vez |
+| Autoload | La rueda al final de **cada nivel** agrega 3 de ese nivel; nunca las dos cosas a la vez. Lo que llega hace un pulso de 3 ondas sobre el **fondo de la fila** (`PULSE_*`): el color de texto no se re-pinta en caliente en este renderer |
 | Scrollbars | Visibles: la del contenedor de la lista y la de cada directorio expandido |
 | Búsqueda | Abre todos los grupos y lista todos los matches (sin chunks), porque el query ya acotó el conjunto |
 

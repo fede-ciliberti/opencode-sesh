@@ -346,6 +346,43 @@ await check("a directory header still collapses while a query is active", async 
   } finally { harness.close() }
 })
 
+// Autoload appends three rows and washes them while they arrive: the pulse is
+// three soft waves on the row background (a text fade does not paint here).
+await check("autoload appends three rows and pulses them", async () => {
+  const deep = Array.from({ length: 30 }, (_, index) => session(index, `Deep session ${index}`, "/work/deep"))
+  const harness = await createHarness({ width: 46, height: 40, sessions: deep, source })
+  try {
+    const head = rowAt(await harness.sidebar(), "▸ /work/deep")
+    await harness.setup.mockMouse.click(head.x, head.y)
+    await harness.setup.flush()
+    for (let turn = 0; turn < 3; turn++) {
+      await harness.setup.mockMouse.scroll(20, 6, "down")
+      await harness.setup.flush()
+    }
+    const wash = (needle) => {
+      const spans = harness.setup.captureSpans()
+      for (const line of spans.lines) {
+        const span = line.spans.find((entry) => entry.text.includes(needle))
+        if (span) return Array.from(span.bg.buffer)[0]
+      }
+      return undefined
+    }
+    await harness.setup.mockMouse.scroll(20, 6, "down")
+    // Move the pointer off the rows: the hovered row has its own background and
+    // would be mistaken for the wash.
+    await harness.setup.mockMouse.moveTo(1, 1)
+    await harness.setup.renderOnce()
+    const frame = harness.setup.captureCharFrame()
+    assert.ok(frame.includes("Deep session 10") && frame.includes("Deep session 12"), "the chunk adds three rows\n" + frame)
+    assert.ok(!frame.includes("Deep session 13"), "and stops there\n" + frame)
+    assert.ok(wash("Deep session 10") > 0, "the new rows are washed")
+    assert.equal(wash("Deep session 3"), 0, "settled rows are not")
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    await harness.setup.flush()
+    assert.equal(wash("Deep session 10") ?? 0, 0, "the wash ends by itself")
+  } finally { harness.close() }
+})
+
 await check("clicking the sidebar triangle collapses the section, not the keyboard layer", async () => {
   const harness = await createHarness({ width: 60, height: 30, sessions, source })
   try {
