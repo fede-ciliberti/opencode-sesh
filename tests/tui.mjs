@@ -430,6 +430,10 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   assert.match(source, /height=\{visibleListRows\(\)\}/, "the list box has an explicit height")
   assert.match(source, /const visibleListRows = createMemo\(\(\) => Math\.min\(listRows\(\), Math\.max\(1, contentLines\(\)\)\)\)/)
   assert.match(source, /verticalScrollbarOptions=\{\{ visible: true \}\}/, "the group scrollbox shows its scrollbar")
+  // The heading must not inherit the slot's muted default (it renders dimmer
+  // than the host's own sections): title and triangle carry the text colour.
+  assert.match(source, /<text flexShrink=\{0\} style=\{\{ fg: theme\(\)\.text \}\} onMouseDown=/, "the triangle uses the text colour")
+  assert.match(source, /<text flexShrink=\{1\} wrapMode="none" overflow="hidden" style=\{\{ fg: theme\(\)\.text \}\} onMouseDown=/, "the heading text uses the text colour")
   assert.match(source, /onDirectoryScroll/, "the directory list grows on scroll")
   assert.match(source, /onGroupScroll/, "a group grows on its own scroll")
   const layer = loadDataLayer()

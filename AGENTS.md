@@ -203,7 +203,10 @@ when opencode exits, the picker reopens with the query preserved.
   search input must not submit while it is open. The sidebar heading follows the
   host's own section style — `▼`/`▶`, `Sessions` in bold, the total muted, no
   separate hide control: the triangle collapses the section and the title
-  activates keyboard navigation. Session rows are bullets (`•` idle, `●` the open
+  activates keyboard navigation. Both carry `theme().text` **explicitly**: the
+  slot hands the panel the sidebar's muted default, so an unstyled heading
+  renders dimmer than the native sections (the harness cannot reproduce the
+  inheritance — `tests/tui.mjs` asserts the explicit colour). Session rows are bullets (`•` idle, `●` the open
   one, a spinner while running, `▸` for the cursor), not tree branches. It lists the
   newest `SIDEBAR_DIR_CHUNK` (10) directories **collapsed**; expanding one shows
   its newest `SIDEBAR_SESSION_CHUNK` (10) sessions inside a scrollbox of its own

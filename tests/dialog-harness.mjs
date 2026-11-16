@@ -81,11 +81,25 @@ export function DialogHost(props) {
   return import(`data:text/javascript;base64,${Buffer.from(code).toString("base64")}`)
 }
 
-const color = RGBA.fromHex("#ffffff")
-export const theme = Object.fromEntries(
-  ["text", "textMuted", "warning", "error", "success", "accent", "primary", "info", "background", "backgroundPanel", "backgroundElement", "border", "borderActive"]
-    .map((name) => [name, color]),
-)
+// Distinct colours per token: a single white for every role hid a real defect —
+// an unstyled heading inherited the slot's muted default and rendered dimmer
+// than the host's own sections. Tests can now assert which token painted what.
+const PALETTE = {
+  text: "#ffffff",
+  textMuted: "#8a8a8a",
+  warning: "#ffaa00",
+  error: "#ff5555",
+  success: "#33cc66",
+  accent: "#5599ff",
+  primary: "#5599ff",
+  info: "#55cccc",
+  background: "#101010",
+  backgroundPanel: "#151515",
+  backgroundElement: "#202020",
+  border: "#303030",
+  borderActive: "#404040",
+}
+export const theme = Object.fromEntries(Object.entries(PALETTE).map(([name, hex]) => [name, RGBA.fromHex(hex)]))
 
 // Session fixtures: long enough titles to exercise truncation.
 export const session = (index, title, dir = "/work/project") => ({

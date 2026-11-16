@@ -2390,13 +2390,15 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
       >
         {/* The triangle is its own hit target: no coordinate math, so it works
             wherever the sidebar places the panel. */}
-        <text flexShrink={0} style={{ fg: theme().textMuted }} onMouseDown={(event: { stopPropagation: () => void }) => {
+        <text flexShrink={0} style={{ fg: theme().text }} onMouseDown={(event: { stopPropagation: () => void }) => {
           event.stopPropagation()
           toggleSection()
         }}>
           {sectionCollapsed() ? "▶ " : "▼ "}
         </text>
-        <text flexShrink={1} wrapMode="none" overflow="hidden" onMouseDown={(event: { stopPropagation: () => void }) => {
+        {/* Explicit colour: the slot inherits the sidebar's muted default, so an
+            unstyled bold title renders dimmer than the native sections. */}
+        <text flexShrink={1} wrapMode="none" overflow="hidden" style={{ fg: theme().text }} onMouseDown={(event: { stopPropagation: () => void }) => {
           // Sidebar-internal: keep this click from reaching the root handler,
           // which would release the nav layer this toggle just activated.
           event.stopPropagation()
