@@ -268,6 +268,43 @@ function groupBlockLines(row: { entries: Entry[]; shown: number; total: number }
   return inline <= SIDEBAR_GROUP_ROWS ? inline : SIDEBAR_GROUP_ROWS
 }
 
+// Marquee for a row whose title does not fit: the label scrolls through the
+// same cell budget the resting row uses, with a gap between passes. Only the
+// hovered row animates.
+const MARQUEE_GAP = "   "
+const MARQUEE_MS = 140
+
+function marqueeWindow(text: string, offset: number, width: number): string {
+  if (width <= 0) return ""
+  if (stringWidth(text) <= width) return text
+  const cells = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text + MARQUEE_GAP)]
+    .map((part) => part.segment)
+  const start = ((offset % cells.length) + cells.length) % cells.length
+  let out = ""
+  for (let index = 0; index < cells.length && stringWidth(out) < width; index++) {
+    out += cells[(start + index) % cells.length]
+  }
+  return out
+}
+
+function createMarquee(active: () => boolean): () => number {
+  const [offset, setOffset] = createSignal(0)
+  let timer: ReturnType<typeof setInterval> | undefined
+  createEffect(() => {
+    if (active() && !timer) {
+      timer = setInterval(() => setOffset((value) => value + 1), MARQUEE_MS)
+    } else if (!active() && timer) {
+      clearInterval(timer)
+      timer = undefined
+      setOffset(0)
+    }
+  })
+  onCleanup(() => {
+    if (timer) clearInterval(timer)
+  })
+  return offset
+}
+
 function ago(ms: number): string {
   const s = Math.max(0, Math.floor((Date.now() - ms) / 1000))
   if (s < 60) return "now"
@@ -1982,6 +2019,9 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   const markerOf = (id: string): SidebarMarker => sidebarMarker(id === currentID(), isRunning(id) ? "running" : undefined)
 
   const spinFrame = createSpinner(() => itemRows().some((entry) => markerOf(entry.id) === "running"))
+  // Animates for whichever row the pointer rests on or the keyboard cursor
+  // sits on — the same row `isActive` paints.
+  const marquee = createMarquee(() => (navActive() || hovered() !== undefined) && !query().trim())
 
   const cancelDelete = () => {
     if (confirmTimer) clearTimeout(confirmTimer)
@@ -2306,6 +2346,15 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     if (confirmTimer) clearTimeout(confirmTimer)
   })
 
+  // Resting rows show the label truncated; a hovered row scrolls the rest of it
+  // through the same column budget, like the host's session tabs.
+  const rowTitle = (entry: Entry) => {
+    const width = SIDEBAR_TITLE_WIDTH - (props.pins().sessions.includes(entry.id) ? 2 : 0)
+    const label = `${props.pins().sessions.includes(entry.id) ? "★ " : ""}${entry.title}`
+    if (!isActive(entry.id) || query().trim()) return truncate(label, width)
+    return marqueeWindow(label, marquee(), width)
+  }
+
   const sessionRow = (entry: Entry, last: boolean) => {
     const marker = createMemo(() => markerOf(entry.id))
     return (
@@ -2363,7 +2412,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
         </text>
         <Highlighted
           fit
-          text={`${props.pins().sessions.includes(entry.id) ? "★ " : ""}${truncate(entry.title, SIDEBAR_TITLE_WIDTH - (props.pins().sessions.includes(entry.id) ? 2 : 0))}`}
+          text={rowTitle(entry)}
           query={query()}
           color={isPendingDelete(entry.id) ? theme().error : theme().text}
           matchColor={theme().warning}

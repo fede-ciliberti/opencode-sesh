@@ -245,6 +245,30 @@ await check("sidebar opens on collapsed directories and grows by scrolling one l
 // The triangle collapsed nothing at first: the handler compared the click's x
 // against the panel edge, and the real sidebar does not place the panel at x=0.
 // It is its own hit target now, so the gesture works wherever the panel sits.
+// A title that overflows rests truncated and scrolls while the row is hovered,
+// the way the host's session tabs do.
+await check("hovering a session row scrolls its truncated title", async () => {
+  const long = [session(0, "Nombre y resultado en conflicto con el servidor de envios", "/work/deep")]
+  const harness = await createHarness({ width: 46, height: 24, sessions: long, source })
+  try {
+    const head = rowAt(await harness.sidebar(), "▸ /work/deep")
+    await harness.setup.mockMouse.click(head.x, head.y)
+    await harness.setup.flush()
+    const resting = harness.setup.captureCharFrame()
+    assert.match(resting, /Nombre y resultado en conf…/, "an unfocused row keeps its ellipsis\n" + resting)
+    const row = rowAt(resting, "Nombre y resultado")
+    await harness.setup.mockMouse.moveTo(row.x + 4, row.y)
+    await harness.setup.flush()
+    const first = harness.setup.captureCharFrame()
+    assert.ok(!/Nombre y resultado en conf…/.test(first), "the hovered row drops the ellipsis\n" + first)
+    await new Promise((resolve) => setTimeout(resolve, 320))
+    await harness.setup.flush()
+    const scrolled = harness.setup.captureCharFrame()
+    const line = (frame) => frame.split("\n").find((text) => /resultado/.test(text)) ?? ""
+    assert.notEqual(line(first), line(scrolled), "the title keeps scrolling while hovered\n" + scrolled)
+  } finally { harness.close() }
+})
+
 await check("clicking the sidebar triangle collapses the section, not the keyboard layer", async () => {
   const harness = await createHarness({ width: 60, height: 30, sessions, source })
   try {
