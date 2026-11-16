@@ -213,7 +213,9 @@ when opencode exits, the picker reopens with the query preserved.
   cursor** (`marqueeWindow` + `createMarquee`,
   one timer for the active row only). Timings are the host's own
   (`packages/tui/src/util/marquee.ts`): 80 ms per column after a 600 ms pause,
-  one pass per hover, `" · "` between passes. A search does **not** disable it:
+  `" · "` between passes. It **loops while the row stays hovered** — the host
+  plays a single pass, which leaves the tail unreadable unless you leave and
+  re-enter; wrapping is a deliberate deviation. A search does **not** disable it:
   the resting row reveals the match (`matchReveal` cuts the head and marks it
   with an ellipsis so the highlighted word is on screen without hovering), and
   hovering still scrolls the whole label. It lists the

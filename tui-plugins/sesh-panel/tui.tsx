@@ -347,12 +347,11 @@ function createMarquee(active: () => boolean, label: () => string): () => number
     const cycle = marqueeCycleWidth(label())
     delay = setTimeout(() => {
       setOffset(1)
+      // Loops while the row stays hovered: reaching the end of the cycle wraps
+      // to the start instead of stopping (the host's marquee plays once, but a
+      // single pass leaves the tail unreadable unless you leave and re-enter).
       timer = setInterval(() => {
-        setOffset((value) => {
-          if (value + 1 < cycle) return value + 1
-          clear()
-          return 0
-        })
+        setOffset((value) => (value + 1 < cycle ? value + 1 : 0))
       }, MARQUEE_MS)
     }, MARQUEE_DELAY)
   })
