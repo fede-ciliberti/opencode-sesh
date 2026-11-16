@@ -213,8 +213,10 @@ when opencode exits, the picker reopens with the query preserved.
   cursor** (`marqueeWindow` + `createMarquee`,
   one timer for the active row only). Timings are the host's own
   (`packages/tui/src/util/marquee.ts`): 80 ms per column after a 600 ms pause,
-  one pass per hover, `" · "` between passes. While a query is active the title
-  stays put so the match highlight stays readable. It lists the
+  one pass per hover, `" · "` between passes. A search does **not** disable it:
+  the resting row reveals the match (`matchReveal` cuts the head and marks it
+  with an ellipsis so the highlighted word is on screen without hovering), and
+  hovering still scrolls the whole label. It lists the
   newest `SIDEBAR_DIR_CHUNK` (10) directories **collapsed**; expanding one shows
   its newest `SIDEBAR_SESSION_CHUNK` (10) sessions inside a scrollbox of its own
   (`SIDEBAR_GROUP_ROWS` = 10, scrollbar visible), and the wheel at the end of

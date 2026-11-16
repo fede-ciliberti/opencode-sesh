@@ -48,7 +48,7 @@ function loadDataLayer(readExtraction = async () => { throw new Error("no local 
     "setTimeout",
     "setInterval", "clearInterval", "POLL_MS", "existsSync", "spawnSync", "spawn", "stringWidth",
     `${js}
-    return { fetchEntries, buildSearchIndex, buildSearchIndexRemote, createSessionPoll, resolveDbPath, openInCmuxWorkspace, inCmux, errorReason, withReason, fitDir, contextMenuWindow, SESSION_PAGE_LIMIT, SESSION_MAX, REMOTE_CONCURRENCY, TRANSCRIPT_BATCH, newestFirst, sidebarMarker, transcriptMatchExcerpt, filterPickerEntries, queryWaitingDetails, createDbClient, DB_WORKER_SOURCE, costRowsQuery, contextMenuItems, contextMenuBox, createContextMenu, TRANSCRIPT_BATCH_BYTES, transcriptCache, clearTranscriptCache, homeDirLabels, queryRunningIds, createRunningState , headOf, groupBlockLines, marqueeWindow, marqueeCycleWidth, SIDEBAR_DIR_CHUNK, SIDEBAR_SESSION_CHUNK, SIDEBAR_GROUP_ROWS }`,
+    return { fetchEntries, buildSearchIndex, buildSearchIndexRemote, createSessionPoll, resolveDbPath, openInCmuxWorkspace, inCmux, errorReason, withReason, fitDir, contextMenuWindow, SESSION_PAGE_LIMIT, SESSION_MAX, REMOTE_CONCURRENCY, TRANSCRIPT_BATCH, newestFirst, sidebarMarker, transcriptMatchExcerpt, filterPickerEntries, queryWaitingDetails, createDbClient, DB_WORKER_SOURCE, costRowsQuery, contextMenuItems, contextMenuBox, createContextMenu, TRANSCRIPT_BATCH_BYTES, transcriptCache, clearTranscriptCache, homeDirLabels, queryRunningIds, createRunningState , headOf, groupBlockLines, marqueeWindow, marqueeCycleWidth, matchReveal, SIDEBAR_DIR_CHUNK, SIDEBAR_SESSION_CHUNK, SIDEBAR_GROUP_ROWS }`,
   )
   return factory(
     readExtraction,
@@ -464,6 +464,14 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   assert.equal(layer.marqueeCycleWidth("abcdefghij"), 13)
   assert.equal(layer.marqueeWindow("abcdefghij", 10, 4), " · a", "the gap is part of the loop")
   assert.equal(layer.marqueeWindow("abcdefghij", 13, 4), "abcd", "the offset wraps after the gap")
+  // A filtered row must show the match even when it sits past the cut.
+  const long = "Revisar texto menu de comandos con el reflect nuevo"
+  const revealed = layer.matchReveal(long, "reflect", 27)
+  assert.ok(revealed.startsWith("…"), `the head is cut and marked: ${revealed}`)
+  assert.match(revealed, /reflect/, "the match survives the cut")
+  assert.equal(layer.matchReveal("short reflect", "reflect", 27), "short reflect", "a match that already fits is untouched")
+  assert.equal(layer.matchReveal(long, "", 27), long, "no query leaves the label alone")
+  assert.equal(layer.matchReveal(long, "nomatch", 27), long, "a label without the needle is untouched")
 }
 // The delete confirm targets the armed row wherever the pointer is: leaving
 // the armed row (edge-hover flicker) must not disarm the pending delete.

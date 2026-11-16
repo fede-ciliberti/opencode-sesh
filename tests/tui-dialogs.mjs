@@ -292,6 +292,32 @@ await check("hovering a directory header scrolls its truncated label", async () 
   } finally { harness.close() }
 })
 
+// With a filter the match must be on screen without hovering, and the marquee
+// must keep working: the two are not alternatives.
+await check("a filtered row reveals its match and still scrolls on hover", async () => {
+  const long = [session(0, "Revisar texto menu de comandos con el reflect nuevo", "/work/deep")]
+  const harness = await createHarness({ width: 50, height: 24, sessions: long, source })
+  try {
+    const head = rowAt(await harness.sidebar(), "▸ /work/deep")
+    await harness.setup.mockMouse.click(head.x, head.y)
+    await harness.setup.flush()
+    await harness.setup.mockMouse.click(3, 2)
+    await harness.setup.flush()
+    for (const key of ["r", "e", "f", "l", "e", "c", "t"]) harness.press(key)
+    await harness.setup.flush()
+    const filtered = harness.setup.captureCharFrame()
+    const row = filtered.split("\n").find((line) => /• .*reflect/.test(line))
+    assert.ok(row, "the resting row shows the match without hovering\n" + filtered)
+    assert.match(row, /…/, "the cut head is marked\n" + filtered)
+    const at = rowAt(filtered, "• ")
+    await harness.setup.mockMouse.moveTo(24, at.y)
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    await harness.setup.flush()
+    const scrolled = harness.setup.captureCharFrame().split("\n")[at.y] ?? ""
+    assert.ok(!/…\s+\S+\s+reflect/.test(scrolled), "hovering scrolls the whole label again\n" + scrolled)
+  } finally { harness.close() }
+})
+
 await check("clicking the sidebar triangle collapses the section, not the keyboard layer", async () => {
   const harness = await createHarness({ width: 60, height: 30, sessions, source })
   try {

@@ -303,6 +303,29 @@ function marqueeWindow(text: string, offset: number, width: number): string {
   return take([...loop.slice(start), ...loop])
 }
 
+// With a query, a row has to show the match even when it sits past the resting
+// truncation point: drop the head of the label and mark it with an ellipsis. The
+// match stays inside the window, so the highlight is visible without hovering.
+function matchReveal(label: string, query: string, width: number): string {
+  const needle = query.trim().toLowerCase()
+  if (!needle || width <= 0) return label
+  const at = label.toLowerCase().indexOf(needle)
+  if (at <= 0) return label
+  const head = stringWidth(label.slice(0, at))
+  const span = stringWidth(label.slice(at, at + needle.length))
+  if (head + span <= width) return label
+  const keep = Math.max(0, Math.round(head - (width - span) / 2))
+  const cells = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(label)].map((part) => part.segment)
+  let dropped = ""
+  let walked = 0
+  for (const cell of cells) {
+    if (walked >= keep) break
+    dropped += cell
+    walked += stringWidth(cell)
+  }
+  return `…${label.slice(dropped.length)}`
+}
+
 function createMarquee(active: () => boolean, label: () => string): () => number {
   const [offset, setOffset] = createSignal(0)
   let delay: ReturnType<typeof setTimeout> | undefined
@@ -2064,7 +2087,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     const entry = id ? entries().find((item) => item.id === id) : undefined
     return entry ? `${props.pins().sessions.includes(entry.id) ? "★ " : ""}${entry.title}` : ""
   }
-  const marquee = createMarquee(() => activeRow().length > 0 && !query().trim(), activeRow)
+  const marquee = createMarquee(() => activeRow().length > 0, activeRow)
 
   const cancelDelete = () => {
     if (confirmTimer) clearTimeout(confirmTimer)
@@ -2395,14 +2418,14 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   const rowTitle = (entry: Entry) => {
     const width = SIDEBAR_TITLE_WIDTH - (props.pins().sessions.includes(entry.id) ? 2 : 0)
     const label = `${props.pins().sessions.includes(entry.id) ? "★ " : ""}${entry.title}`
-    if (!isActive(entry.id) || query().trim()) return truncate(label, width)
+    if (!isActive(entry.id)) return truncate(matchReveal(label, query(), width), width)
     return marqueeWindow(label, marquee(), width)
   }
 
   const groupTitle = (row: { dir: string; label: string; pinned: boolean }) => {
     const width = SIDEBAR_GROUP_WIDTH - (row.pinned ? 2 : 0)
     const label = `${row.pinned ? "★ " : ""}${row.label}`
-    if (hoveredGroup() !== row.dir || query().trim()) return truncate(label, width)
+    if (hoveredGroup() !== row.dir) return truncate(matchReveal(label, query(), width), width)
     return marqueeWindow(label, marquee(), width)
   }
 

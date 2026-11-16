@@ -253,7 +253,8 @@ an armed deletion; `n` or Esc cancels. Pinned
 directories rise first, while sessions within each directory are ordered by
 last update, newest first. A title too long for the column — a session or a
 directory — scrolls while you point at it (or move the keyboard cursor over a
-session), like the session tabs do.
+session), like the session tabs do; while a search is active, each row reveals
+the matching word so the highlight is visible without hovering.
 The section lists the newest **10 directories
 collapsed**: click one to expand its newest 10 sessions in a block that scrolls
 on its own, and the wheel at the end of either list pulls the next 10 (one level
