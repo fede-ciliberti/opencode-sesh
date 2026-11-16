@@ -205,9 +205,12 @@ when opencode exits, the picker reopens with the query preserved.
   `SIDEBAR_SESSIONS` sessions each, plus every pinned session and the open one
   wherever they sit, and a `Load more…` row that doubles both budgets; a search
   lifts the budgets — and flex-grows to fill the sidebar, scrolling inside; the
-  picker remains the place for transcript search. That row sits **above** the
-  list: the slot gives the panel no bounded height, so it grows with its
-  content and anything after the list is clipped.
+  picker remains the place for transcript search. The section caps its own
+  height (`maxHeight={sectionCeiling()}`, half of the terminal between 14 and 26
+  rows) because the slot gives the panel **no bounded height**: uncapped it grew
+  with its content, took the whole sidebar and left any section below it —
+  another plugin — unreachable, and the rows past the slot's clip were invisible
+  (that is why the budget row sits below the list but still on screen).
   Sessions waiting on the user (unanswered questions, stuck runs) pin a
   **Needs input** group above the directories, with the count in the heading —
   same `NEEDS_INPUT_SQL` heuristic as `bin/sesh-waiting.sh`. Message payloads are

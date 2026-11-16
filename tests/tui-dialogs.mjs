@@ -201,8 +201,23 @@ await check("sidebar opens on a head of the list and Load more… doubles the bu
     for (const key of ["s", "e", "s", "s", "i", "o", "n"]) harness.press(key)
     await harness.setup.flush()
     frame = harness.setup.captureCharFrame()
-    assert.equal(rows(frame), 12, "a query lists every match, not a head\n" + frame)
+    // The section is bounded now, so the frame shows a viewport of the matches;
+    // what matters is that the budget no longer applies: matches past the
+    // per-group budget are in the tree, not just the first four.
+    assert.match(frame, /Sessions \(12\/12\)/, "the header counts every match\n" + frame)
+    assert.ok(frame.includes("Session number 5"), "matches past the group budget reach the list\n" + frame)
     assert.ok(!frame.includes("Load more…"), "no budget row while searching\n" + frame)
+  } finally { harness.close() }
+})
+
+await check("sidebar section stays bounded so a block below it keeps its room", async () => {
+  const harness = await createHarness({ width: 60, height: 40, sessions, source })
+  try {
+    const frame = await harness.sidebar()
+    const lines = frame.split("\n").map((line) => line.trimEnd())
+    const lastInk = lines.reduce((last, line, index) => (line ? index + 1 : last), 0)
+    assert.ok(lastInk <= 21, `the section must stop at half the terminal, not fill it (last row ${lastInk})\n` + frame)
+    assert.ok(lines.slice(lastInk + 1).every((line) => !line), "rows below the section stay free for another block")
   } finally { harness.close() }
 })
 

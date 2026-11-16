@@ -249,6 +249,14 @@ function homeDirLabels(dirs: string[], home: string): Map<string, string> {
 // and expects to see every match.
 const SIDEBAR_DIRS = 6
 const SIDEBAR_SESSIONS = 4
+// The section never takes more than half the terminal (between these bounds):
+// the sidebar slot hands the panel no height, so without a ceiling this
+// section grows with its content and a section rendered below it — another
+// plugin — can only be reached by scrolling past every row here.
+// Below this the section's own chrome (heading, search box, budget row) plus
+// the list no longer fit, and the panel would be clipped from the top.
+const SIDEBAR_MIN_ROWS = 14
+const SIDEBAR_MAX_ROWS = 26
 
 function headOf(list: Entry[], sessions: number, keep: Set<string>): Entry[] {
   return list.filter((entry, index) => index < sessions || keep.has(entry.id))
@@ -1955,6 +1963,9 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     return true
   }
 
+  const term = trackSize(props.api)
+  onMount(() => onCleanup(term.dispose))
+  const sectionCeiling = createMemo(() => Math.max(SIDEBAR_MIN_ROWS, Math.min(SIDEBAR_MAX_ROWS, Math.floor(term.size().height / 2))))
   let sidebarScroll: { scrollTop: number } | undefined
   let moreBox: { width: number } | undefined
   const [moreWidth, setMoreWidth] = createSignal(SIDEBAR_GROUP_WIDTH)
@@ -2216,7 +2227,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   })
 
   return (
-    <box flexDirection="column" paddingRight={1} flexGrow={1} flexShrink={1}>
+    <box flexDirection="column" paddingRight={1} flexGrow={1} flexShrink={1} maxHeight={sectionCeiling()}>
       <box flexDirection="row" justifyContent="space-between" gap={1}>
         <text flexShrink={1} wrapMode="none" overflow="hidden" onMouseDown={(event: { stopPropagation: () => void }) => {
           // Sidebar-internal: keep this click from reaching the root handler,
@@ -2280,39 +2291,11 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
             </text>
           </Show>
         </box>
-        <Show when={moreRow()}>
-          {(more) => (
-            <box
-              flexDirection="row"
-              flexShrink={0}
-              height={1}
-              paddingLeft={1}
-              paddingRight={1}
-              ref={(ref: { width: number }) => (moreBox = ref)}
-              renderAfter={() => {
-                if (moreBox && moreBox.width !== moreWidth()) {
-                  const measured = moreBox.width
-                  queueMicrotask(() => setMoreWidth(measured))
-                }
-              }}
-              onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
-                event.stopPropagation()
-                if (event.button === RIGHT_BUTTON) return
-                menu.close()
-                cancelDelete()
-                loadMore()
-              }}
-            >
-              <text flexGrow={1} flexShrink={1} overflow="hidden" wrapMode="none" style={{ fg: theme().textMuted }}>
-                {sidebarMoreLabel(more().dirs, more().sessions, Math.max(0, moreWidth() - 2))}
-              </text>
-            </box>
-          )}
-        </Show>
         <scrollbox
           ref={(node: { scrollTop: number }) => (sidebarScroll = node)}
           flexGrow={1}
           flexShrink={1}
+          minHeight={0}
           verticalScrollbarOptions={{ visible: false }}
           horizontalScrollbarOptions={{ visible: false }}
           onMouseScroll={() => menu.close()}
@@ -2403,6 +2386,35 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
           }}
         </For>
         </scrollbox>
+        <Show when={moreRow()}>
+          {(more) => (
+            <box
+              flexDirection="row"
+              flexShrink={0}
+              height={1}
+              paddingLeft={1}
+              paddingRight={1}
+              ref={(ref: { width: number }) => (moreBox = ref)}
+              renderAfter={() => {
+                if (moreBox && moreBox.width !== moreWidth()) {
+                  const measured = moreBox.width
+                  queueMicrotask(() => setMoreWidth(measured))
+                }
+              }}
+              onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
+                event.stopPropagation()
+                if (event.button === RIGHT_BUTTON) return
+                menu.close()
+                cancelDelete()
+                loadMore()
+              }}
+            >
+              <text flexGrow={1} flexShrink={1} overflow="hidden" wrapMode="none" style={{ fg: theme().textMuted }}>
+                {sidebarMoreLabel(more().dirs, more().sessions, Math.max(0, moreWidth() - 2))}
+              </text>
+            </box>
+          )}
+        </Show>
         <Show when={query().trim() && filteredEntries().length === 0}>
             <text style={{ fg: theme().textMuted }}>No title or directory matches · option+o to search transcripts</text>
         </Show>
