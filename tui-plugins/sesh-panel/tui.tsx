@@ -240,45 +240,29 @@ function homeDirLabels(dirs: string[], home: string): Map<string, string> {
   }))
 }
 
-// The sidebar shows a head of the recent list instead of everything: the
-// newest SIDEBAR_DIRS directories with SIDEBAR_SESSIONS sessions each, plus
-// any pinned session and the open one wherever they sit in their group, so a
-// pin or the ● marker never falls outside the budget. A "Load more…" row
-// doubles both budgets: even a deep list opens in a few clicks instead of
-// dozens. A search lifts the budgets — the user narrowed the list on purpose
-// and expects to see every match.
-const SIDEBAR_DIRS = 6
-const SIDEBAR_SESSIONS = 4
-// The section never takes more than half the terminal (between these bounds):
-// the sidebar slot hands the panel no height, so without a ceiling this
-// section grows with its content and a section rendered below it — another
-// plugin — can only be reached by scrolling past every row here.
-// Below this the section's own chrome (heading, search box, budget row) plus
-// the list no longer fit, and the panel would be clipped from the top.
+// The sidebar lists the newest directories **collapsed**. Expanding one shows
+// its newest SIDEBAR_SESSION_CHUNK sessions inside a scrollbox of its own; both
+// lists grow by a chunk when the wheel asks for more at their end.
+const SIDEBAR_DIR_CHUNK = 10
+const SIDEBAR_SESSION_CHUNK = 10
+// An expanded directory renders fewer rows than a chunk, so there is always
+// somewhere left to scroll and ask for the next chunk.
+const SIDEBAR_GROUP_ROWS = 10
+// The section gives itself a fixed height instead of growing with its content:
+// the sidebar slot hands the panel no height, and anything past the slot's clip
+// used to be invisible (or, worse, clipped the heading away). Half the terminal
+// keeps a section rendered below it — another plugin — reachable.
 const SIDEBAR_MIN_ROWS = 14
 const SIDEBAR_MAX_ROWS = 26
+// Rows the section spends on its own chrome: heading and search box.
+const SIDEBAR_CHROME_ROWS = 2
 
 function headOf(list: Entry[], sessions: number, keep: Set<string>): Entry[] {
   return list.filter((entry, index) => index < sessions || keep.has(entry.id))
 }
-
-// The budget row says what is left without ever ending in a chopped count: it
-// falls back to a compact form, then to the unit that fits, then to the bare
-// action.
-function sidebarMoreLabel(dirs: number, sessions: number, width = SIDEBAR_GROUP_WIDTH): string {
-  const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
-  const dirsLong = dirs > 0 ? count(dirs, "directory", "directories") : ""
-  const dirsShort = dirs > 0 ? count(dirs, "dir", "dirs") : ""
-  const sessionsLong = sessions > 0 ? count(sessions, "session", "sessions") : ""
-  const sessionsShort = sessions > 0 ? count(sessions, "sess", "sess") : ""
-  const forms = [
-    `Load more… · ${[dirsLong, sessionsLong].filter(Boolean).join(" · ")}`,
-    `Load more… · ${[dirsShort, sessionsShort].filter(Boolean).join(" · ")}`,
-    dirsShort && `Load more… · ${dirsShort}`,
-    sessionsShort && `Load more… · ${sessionsShort}`,
-    "Load more…",
-  ].filter((form): form is string => Boolean(form))
-  return forms.find((form) => stringWidth(form) <= width) ?? "Load more…"
+function groupBlockLines(row: { entries: Entry[]; shown: number; total: number }): number {
+  const inline = row.entries.length + (row.shown < row.total ? 1 : 0)
+  return inline <= SIDEBAR_GROUP_ROWS ? inline : SIDEBAR_GROUP_ROWS
 }
 
 function ago(ms: number): string {
@@ -1536,14 +1520,13 @@ function createTranscriptPreview(api: TuiPluginApi) {
   return { open, closeIfOpen }
 }
 
+// The sidebar renders a flat list of rows: one line per directory header, plus
+// one block per expanded directory (its own scrollbox, SIDEBAR_GROUP_ROWS tall).
 type TreeRow =
-  | { kind: "group"; dir: string; label: string; count: number }
-  | { kind: "item"; entry: Entry; last: boolean }
+  | { kind: "group"; dir: string; label: string; count: number; pinned: boolean; expanded: boolean }
+  | { kind: "sessions"; dir: string; entries: Entry[]; shown: number; total: number }
 
-// What the sidebar's budget hides. The row sits above the list, not after it:
-// the real sidebar slot gives the panel no bounded height, so the panel grows
-// with its content and anything below the list is clipped out of view.
-type SidebarMore = { dirs: number; sessions: number }
+
 
 type PickerRow =
   | { kind: "group"; dir: string; label: string; count: number; pinned: boolean; continued?: boolean }
@@ -1729,7 +1712,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   const home = process.env.HOME ?? ""
   const [entries, setEntries] = createSignal<Entry[]>([])
   const [sectionCollapsed, setSectionCollapsed] = createSignal(false)
-  const [collapsed, setCollapsed] = createSignal<Record<string, boolean>>({})
+  const [expandedDirs, setExpandedDirs] = createSignal<Record<string, boolean>>({})
   const [hovered, setHovered] = createSignal<string>()
   const preview = createTranscriptPreview(props.api)
   const [menuState, setMenuState] = createSignal<MenuState>()
@@ -1742,8 +1725,8 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   const [pendingDelete, setPendingDelete] = createSignal<string>()
   const [waiting, setWaiting] = createSignal<Map<string, string>>(new Map())
   const [polledRunning, setPolledRunning] = createSignal<Set<string>>(new Set())
-  const [dirLimit, setDirLimit] = createSignal(SIDEBAR_DIRS)
-  const [sessionLimit, setSessionLimit] = createSignal(SIDEBAR_SESSIONS)
+  const [dirLimit, setDirLimit] = createSignal(SIDEBAR_DIR_CHUNK)
+  const [groupLimits, setGroupLimits] = createSignal<Record<string, number>>({})
   const isRunning = createRunningState((id) => props.api.state.session.status(id), polledRunning)
   let confirmTimer: ReturnType<typeof setTimeout> | undefined
   const currentID = createMemo(() => {
@@ -1787,30 +1770,21 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     return keep
   })
 
-  const sidebarTree = createMemo<{ rows: TreeRow[]; more?: SidebarMore }>(() => {
-    const rows: TreeRow[] = []
-    // Searching lists every match; otherwise the budgets hold.
-    const sessionBudget = searchActive() ? Number.POSITIVE_INFINITY : sessionLimit()
-    const dirBudget = searchActive() ? Number.POSITIVE_INFINITY : dirLimit()
-    const keep = keptSessions()
-    const pending = waitingEntries()
-    const pendingHead = headOf(pending, sessionBudget, keep)
-    if (pending.length > 0) {
-      rows.push({ kind: "group", dir: NEEDS_INPUT_DIR, label: "Needs input", count: pending.length })
-      if (!collapsed()[NEEDS_INPUT_DIR]) {
-        for (let i = 0; i < pendingHead.length; i++) {
-          rows.push({ kind: "item", entry: pendingHead[i], last: i === pendingHead.length - 1 })
-        }
-      }
-    }
-    const groups = new Map<string, Entry[]>()
+  // A directory is open only when it was expanded by hand; the needs-input
+  // group is the exception (it is the alert list, so it starts open).
+  const isOpen = (dir: string) =>
+    dir === NEEDS_INPUT_DIR ? expandedDirs()[dir] !== false : expandedDirs()[dir] === true
+  const limitOf = (dir: string) => groupLimits()[dir] ?? SIDEBAR_SESSION_CHUNK
+
+  const groups = createMemo(() => {
+    const byDir = new Map<string, Entry[]>()
     for (const entry of shownEntries()) {
       if (waiting().has(entry.id)) continue
-      const list = groups.get(entry.dir) ?? []
+      const list = byDir.get(entry.dir) ?? []
       list.push(entry)
-      groups.set(entry.dir, list)
+      byDir.set(entry.dir, list)
     }
-    const ordered = [...groups.entries()]
+    return [...byDir.entries()]
       .map(([dir, list]) => ({ dir, list, updated: Math.max(...list.map((entry) => entry.updated)) }))
       .sort((a, b) => {
         const pins = props.pins()
@@ -1818,34 +1792,113 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
           pins.directories.includes(group.dir) ? 2 : group.list.some((entry) => pins.sessions.includes(entry.id)) ? 1 : 0
         return rank(b) - rank(a) || b.updated - a.updated
       })
-    const shownGroups = ordered.slice(0, dirBudget)
-    for (const group of shownGroups) {
-      const sessions = headOf(newestFirst(group.list), sessionBudget, keep)
-      rows.push({ kind: "group", dir: group.dir, label: prettyDir(group.dir, home), count: group.list.length })
-      if (collapsed()[group.dir]) continue
-      for (let i = 0; i < sessions.length; i++) {
-        rows.push({ kind: "item", entry: sessions[i], last: i === sessions.length - 1 })
-      }
+  })
+  const dirCount = createMemo(() => groups().length)
+
+  const sidebarRows = createMemo<TreeRow[]>(() => {
+    const rows: TreeRow[] = []
+    const keep = keptSessions()
+    const search = searchActive()
+    const pending = waitingEntries()
+    const push = (dir: string, list: Entry[], total: number) => {
+      const limit = search ? total : limitOf(dir)
+      const entries = headOf(list, limit, keep)
+      rows.push({ kind: "sessions", dir, entries, shown: entries.length, total })
     }
-    // Counted on the whole list, not just the visible groups: sessions in a
-    // directory below the budget are hidden too.
-    const hiddenDirs = ordered.length - shownGroups.length
-    const hiddenSessions = pending.length - pendingHead.length
-      + ordered.reduce((sum, group) => sum + group.list.length - headOf(newestFirst(group.list), sessionBudget, keep).length, 0)
-    const more = hiddenDirs > 0 || hiddenSessions > 0 ? { dirs: hiddenDirs, sessions: hiddenSessions } : undefined
-    return { rows, more }
+    if (pending.length > 0) {
+      const open = isOpen(NEEDS_INPUT_DIR)
+      rows.push({ kind: "group", dir: NEEDS_INPUT_DIR, label: "Needs input", count: pending.length, pinned: false, expanded: open })
+      if (open) push(NEEDS_INPUT_DIR, pending, pending.length)
+    }
+    const ordered = groups()
+    // A search lists every directory: the query already narrowed the set.
+    const shown = search ? ordered : ordered.slice(0, dirLimit())
+    for (const group of shown) {
+      // A search opens every group: the query already narrowed the sessions,
+      // and a match hidden behind a collapsed header is a match the user asked
+      // for and cannot see.
+      const open = search || isOpen(group.dir)
+      const pins = props.pins()
+      rows.push({
+        kind: "group",
+        dir: group.dir,
+        label: prettyDir(group.dir, home),
+        count: group.list.length,
+        pinned: pins.directories.includes(group.dir),
+        expanded: open,
+      })
+      if (open) push(group.dir, newestFirst(group.list), group.list.length)
+    }
+    return rows
   })
 
-  const tree = createMemo(() => sidebarTree().rows)
-  const moreRow = createMemo(() => sidebarTree().more)
+  const tree = createMemo(() => sidebarRows())
+  // Flat order of the sessions a cursor can land on, so keyboard navigation and
+  // mouse hover resolve to the same row.
+  const itemRows = createMemo(() => sidebarRows().flatMap((row) => (row.kind === "sessions" ? row.entries : [])))
 
-  const loadMore = () => {
-    setDirLimit((value) => value * 2)
-    setSessionLimit((value) => value * 2)
+  // Every row's line offset inside the outer scrollbox, so keyboard navigation
+  // can scroll the list (and the group's own box) to keep the cursor visible.
+  const layoutOf = (dir: string) => {
+    let line = 0
+    for (const row of sidebarRows()) {
+      const lines = row.kind === "group" ? 1 : groupBlockLines(row)
+      if (row.dir === dir) return { line, lines, row }
+      line += lines
+    }
+    return undefined
   }
+  const contentLines = createMemo(() =>
+    sidebarRows().reduce((total, row) => total + (row.kind === "group" ? 1 : groupBlockLines(row)), 0))
 
   const toggleGroup = (dir: string) => {
-    setCollapsed((prev) => ({ ...prev, [dir]: !prev[dir] }))
+    setExpandedDirs((prev) => ({ ...prev, [dir]: !isOpen(dir) }))
+  }
+
+  const revealCursor = () => {
+    const entry = itemRows()[cursor()]
+    if (!entry) return
+    const found = layoutOf(entry.dir)
+    if (!found) return
+    const outer = outerBox
+    if (outer) {
+      const top = outer.scrollTop
+      const height = visibleListRows()
+      if (found.line < top) outer.scrollTop = found.line
+      else if (found.line + found.lines > top + height) outer.scrollTop = found.line + found.lines - height
+    }
+    const inner = innerBoxes.get(entry.dir)
+    const row = found.row
+    if (!inner || row.kind !== "sessions" || row.entries.length <= SIDEBAR_GROUP_ROWS) return
+    const index = row.entries.findIndex((item) => item.id === entry.id)
+    if (index < 0) return
+    if (index < inner.scrollTop) inner.scrollTop = index
+    else if (index >= inner.scrollTop + SIDEBAR_GROUP_ROWS) inner.scrollTop = index - SIDEBAR_GROUP_ROWS + 1
+  }
+  createEffect(() => {
+    if (!navActive()) return
+    cursor()
+    queueMicrotask(revealCursor)
+  })
+
+  // Scroll-driven growth: the wheel at the end of a list asks for the next
+  // chunk. Data is local today, so the chunk lands immediately; with the paged
+  // SQLite read it becomes a query.
+  const onDirectoryScroll = (event: { scroll?: { direction?: string } }) => {
+    menu.close()
+    if (event.scroll?.direction !== "down" || !outerBox) return
+    if (outerBox.scrollTop + visibleListRows() < contentLines() - 1) return
+    if (searchActive() || dirLimit() >= dirCount()) return
+    setDirLimit((value) => value + SIDEBAR_DIR_CHUNK)
+  }
+  const onGroupScroll = (row: { dir: string; entries: Entry[]; shown: number; total: number }, event: { scroll?: { direction?: string } }) => {
+    if (event.scroll?.direction !== "down") return
+    const box = innerBoxes.get(row.dir)
+    if (!box || searchActive()) return
+    const content = row.entries.length + (row.shown < row.total ? 1 : 0)
+    if (box.scrollTop + SIDEBAR_GROUP_ROWS < content - 1) return
+    if (limitOf(row.dir) >= row.total) return
+    setGroupLimits((prev) => ({ ...prev, [row.dir]: limitOf(row.dir) + SIDEBAR_SESSION_CHUNK }))
   }
 
   const toggleSection = () => {
@@ -1871,9 +1924,6 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     props.api.route.navigate("session", { sessionID: entry.id })
   }
 
-  // Flat order of the rows a cursor can land on, so keyboard navigation and
-  // mouse hover resolve to the same row.
-  const itemRows = createMemo(() => tree().flatMap((row) => (row.kind === "item" ? [row.entry] : [])))
   const isActive = (id: string) => (navActive() ? itemRows()[cursor()]?.id === id : hovered() === id)
   const isPendingDelete = (id: string) => pendingDelete() === id
 
@@ -1965,10 +2015,18 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
 
   const term = trackSize(props.api)
   onMount(() => onCleanup(term.dispose))
-  const sectionCeiling = createMemo(() => Math.max(SIDEBAR_MIN_ROWS, Math.min(SIDEBAR_MAX_ROWS, Math.floor(term.size().height / 2))))
-  let sidebarScroll: { scrollTop: number } | undefined
-  let moreBox: { width: number } | undefined
-  const [moreWidth, setMoreWidth] = createSignal(SIDEBAR_GROUP_WIDTH)
+  // Fixed geometry: heading + search + list. The section never measures itself
+  // from its content, so nothing can push the heading out of the slot's clip.
+  const sectionRows = createMemo(() => Math.max(SIDEBAR_MIN_ROWS, Math.min(SIDEBAR_MAX_ROWS, Math.floor(term.size().height / 2))))
+  const listRows = createMemo(() => sectionRows() - SIDEBAR_CHROME_ROWS)
+  // The list box is as tall as its content until the section's budget binds:
+  // every height here is explicit, so nothing overflows the box and the heading
+  // can never be clipped away.
+  const visibleListRows = createMemo(() => Math.min(listRows(), Math.max(1, contentLines())))
+  const extraRows = createMemo(() => (navActive() ? 2 : 0) + (searchActive() && filteredEntries().length === 0 ? 1 : 0))
+  const sectionHeight = createMemo(() => (sectionCollapsed() ? 1 : SIDEBAR_CHROME_ROWS + visibleListRows() + extraRows()))
+  let outerBox: { scrollTop: number } | undefined
+  const innerBoxes = new Map<string, { scrollTop: number }>()
 
   const deleteEntry = async (entry: Entry) => {
     cancelDelete()
@@ -1986,11 +2044,11 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
         props.api.ui.toast({ message: "Session was not deleted", variant: "error" })
         return
       }
-      const scrollTop = sidebarScroll?.scrollTop ?? 0
+      const scrollTop = outerBox?.scrollTop ?? 0
       setEntries(remaining)
       setHovered(undefined)
       const restore = () => {
-        if (sidebarScroll) sidebarScroll.scrollTop = scrollTop
+        if (outerBox) outerBox.scrollTop = scrollTop
       }
       queueMicrotask(restore)
       setTimeout(restore, 0)
@@ -2226,9 +2284,79 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     if (confirmTimer) clearTimeout(confirmTimer)
   })
 
+  const sessionRow = (entry: Entry, last: boolean) => {
+    const marker = createMemo(() => markerOf(entry.id))
+    return (
+      <box
+        flexDirection="row"
+        gap={1}
+        height={1}
+        paddingLeft={1}
+        paddingRight={1}
+        backgroundColor={
+          isActive(entry.id) && entry.id !== currentID()
+            ? theme().backgroundElement
+            : RGBA.fromInts(0, 0, 0, 0)
+        }
+        onMouseOver={() => {
+          setHovered(entry.id)
+          // The keyboard layer wins over the hover layer while nav is active.
+          // Keep its cursor on the hovered row so Ctrl-S/Ctrl-D cannot silently
+          // pin a different (often current) session.
+          if (navActive()) {
+            const index = itemRows().findIndex((item) => item.id === entry.id)
+            if (index >= 0) setCursor(index)
+          }
+        }}
+        onMouseMove={() => setHovered(entry.id)}
+        onMouseOut={() => setHovered(undefined)}
+        onMouseDown={(event: { button?: number; x: number; y: number; stopPropagation: () => void }) => {
+          if (event.button === RIGHT_BUTTON) {
+            event.stopPropagation()
+            cancelDelete()
+            menu.open(entry, event.x, event.y)
+          } else {
+            // Sidebar-internal: openSession releases the sidebar's own
+            // captures, so this click must not also reach the root handler as
+            // an outside click.
+            event.stopPropagation()
+            void openSession(entry)
+          }
+        }}
+      >
+        <text flexShrink={0}>
+          <span style={{ fg: theme().textMuted }}>{last ? "└" : "├"}</span>
+          <span
+            style={{
+              fg: isPendingDelete(entry.id)
+                ? theme().error
+                : marker() === "current"
+                  ? theme().accent
+                  : marker() === "running"
+                    ? theme().success
+                    : theme().textMuted,
+            }}
+          >
+            {marker() === "current" ? "●" : marker() === "running" ? SIDEBAR_SPINNER[spinFrame()] : isActive(entry.id) ? "▸" : "○"}
+          </span>
+        </text>
+        <Highlighted
+          fit
+          text={`${props.pins().sessions.includes(entry.id) ? "★ " : ""}${truncate(entry.title, SIDEBAR_TITLE_WIDTH - (props.pins().sessions.includes(entry.id) ? 2 : 0))}`}
+          query={query()}
+          color={isPendingDelete(entry.id) ? theme().error : theme().text}
+          matchColor={theme().warning}
+        />
+        <text flexShrink={0} style={{ fg: isPendingDelete(entry.id) ? theme().error : theme().textMuted }}>
+          {isPendingDelete(entry.id) ? "option+d again" : ago(entry.updated)}
+        </text>
+      </box>
+    )
+  }
+
   return (
-    <box flexDirection="column" paddingRight={1} flexGrow={1} flexShrink={1} maxHeight={sectionCeiling()}>
-      <box flexDirection="row" justifyContent="space-between" gap={1}>
+    <box flexDirection="column" paddingRight={1} width="100%" height={sectionHeight()} flexShrink={0}>
+      <box flexDirection="row" justifyContent="space-between" gap={1} height={1}>
         <text flexShrink={1} wrapMode="none" overflow="hidden" onMouseDown={(event: { stopPropagation: () => void }) => {
           // Sidebar-internal: keep this click from reaching the root handler,
           // which would release the nav layer this toggle just activated.
@@ -2263,6 +2391,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
         <box
           flexDirection="row"
           gap={1}
+          height={1}
           paddingRight={1}
           backgroundColor={searching() ? theme().backgroundElement : RGBA.fromInts(0, 0, 0, 0)}
           onMouseDown={(event: { stopPropagation: () => void }) => {
@@ -2292,134 +2421,69 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
           </Show>
         </box>
         <scrollbox
-          ref={(node: { scrollTop: number }) => (sidebarScroll = node)}
-          flexGrow={1}
-          flexShrink={1}
-          minHeight={0}
-          verticalScrollbarOptions={{ visible: false }}
+          ref={(node: { scrollTop: number }) => (outerBox = node)}
+          height={visibleListRows()}
+          flexShrink={0}
+          verticalScrollbarOptions={{ visible: contentLines() > visibleListRows() }}
           horizontalScrollbarOptions={{ visible: false }}
-          onMouseScroll={() => menu.close()}
+          onMouseScroll={onDirectoryScroll}
         >
-          <For each={tree()}>
+          <For each={sidebarRows()}>
           {(row) => {
             if (row.kind === "group") return (
-              <box flexDirection="row" paddingTop={1} onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
+              <box flexDirection="row" height={1} onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
                 event.stopPropagation()
                 if (event.button === RIGHT_BUTTON) return
                 toggleGroup(row.dir)
               }}>
                 <text flexGrow={1} flexShrink={1} wrapMode="none">
-                  <span style={{ fg: theme().textMuted }}>{collapsed()[row.dir] ? "▸ " : "▾ "}</span>
-                  <b>{props.pins().directories.includes(row.dir) ? "★ " : ""}{truncate(row.label, SIDEBAR_GROUP_WIDTH - (props.pins().directories.includes(row.dir) ? 2 : 0))}</b>
+                  <span style={{ fg: theme().textMuted }}>{row.expanded ? "▾ " : "▸ "}</span>
+                  <b>{row.pinned ? "★ " : ""}{truncate(row.label, SIDEBAR_GROUP_WIDTH - (row.pinned ? 2 : 0))}</b>
                 </text>
                 <text flexShrink={0} style={{ fg: theme().textMuted }}>
                   {" "}({row.count})
                 </text>
               </box>
             )
-            const marker = createMemo(() => markerOf(row.entry.id))
+            const sessions = (
+              <For each={row.entries}>
+                {(entry, index) => sessionRow(entry, index() === row.entries.length - 1 && row.shown >= row.total)}
+              </For>
+            )
+            const more = (
+              <Show when={row.shown < row.total}>
+                <text height={1} style={{ fg: theme().textMuted }}>{`   ▾ ${row.total - row.shown} more…`}</text>
+              </Show>
+            )
+            if (row.entries.length + (row.shown < row.total ? 1 : 0) <= SIDEBAR_GROUP_ROWS) {
+              return <box flexDirection="column">{sessions}{more}</box>
+            }
             return (
-              <box
-                flexDirection="row"
-                gap={1}
-                paddingLeft={1}
-                paddingRight={1}
-                backgroundColor={
-                  isActive(row.entry.id) && row.entry.id !== currentID()
-                    ? theme().backgroundElement
-                    : RGBA.fromInts(0, 0, 0, 0)
-                }
-                onMouseOver={() => {
-                  setHovered(row.entry.id)
-                  // The keyboard layer wins over the hover layer while nav is
-                  // active. Keep its cursor on the hovered row so Ctrl-S/Ctrl-D
-                  // cannot silently pin a different (often current) session.
-                  if (navActive()) {
-                    const index = itemRows().findIndex((entry) => entry.id === row.entry.id)
-                    if (index >= 0) setCursor(index)
-                  }
+              <box flexDirection="column" marginRight={1}>
+              <scrollbox
+                ref={(node: { scrollTop: number }) => {
+                  if (node) innerBoxes.set(row.dir, node)
+                  else innerBoxes.delete(row.dir)
                 }}
-                onMouseMove={() => setHovered(row.entry.id)}
-                onMouseOut={() => setHovered(undefined)}
-                onMouseDown={(event: { button?: number; x: number; y: number; stopPropagation: () => void }) => {
-                  if (event.button === RIGHT_BUTTON) {
-                    event.stopPropagation()
-                    cancelDelete()
-                    menu.open(row.entry, event.x, event.y)
-                  } else {
-                    // Sidebar-internal: openSession releases the sidebar's own
-                    // captures, so this click must not also reach the root
-                    // handler as an outside click.
-                    event.stopPropagation()
-                    void openSession(row.entry)
-                  }
-                }}
+                height={SIDEBAR_GROUP_ROWS}
+                flexShrink={0}
+                verticalScrollbarOptions={{ visible: true }}
+                horizontalScrollbarOptions={{ visible: false }}
+                onMouseScroll={(event: { scroll?: { direction?: string } }) => onGroupScroll(row, event)}
               >
-                <text flexShrink={0}>
-                  <span style={{ fg: theme().textMuted }}>{row.last ? "└" : "├"}</span>
-                  <span
-                    style={{
-                      fg: isPendingDelete(row.entry.id)
-                        ? theme().error
-                        : marker() === "current"
-                          ? theme().accent
-                          : marker() === "running"
-                            ? theme().success
-                            : theme().textMuted,
-                    }}
-                  >
-                    {marker() === "current" ? "●" : marker() === "running" ? SIDEBAR_SPINNER[spinFrame()] : isActive(row.entry.id) ? "▸" : "○"}
-                  </span>
-                </text>
-                <Highlighted
-                  fit
-                  text={`${props.pins().sessions.includes(row.entry.id) ? "★ " : ""}${truncate(row.entry.title, SIDEBAR_TITLE_WIDTH - (props.pins().sessions.includes(row.entry.id) ? 2 : 0))}`}
-                  query={query()}
-                  color={isPendingDelete(row.entry.id) ? theme().error : theme().text}
-                  matchColor={theme().warning}
-                />
-                <text flexShrink={0} style={{ fg: isPendingDelete(row.entry.id) ? theme().error : theme().textMuted }}>
-                  {isPendingDelete(row.entry.id) ? "option+d again" : ago(row.entry.updated)}
-                </text>
+                {sessions}
+                {more}
+              </scrollbox>
               </box>
             )
           }}
         </For>
         </scrollbox>
-        <Show when={moreRow()}>
-          {(more) => (
-            <box
-              flexDirection="row"
-              flexShrink={0}
-              height={1}
-              paddingLeft={1}
-              paddingRight={1}
-              ref={(ref: { width: number }) => (moreBox = ref)}
-              renderAfter={() => {
-                if (moreBox && moreBox.width !== moreWidth()) {
-                  const measured = moreBox.width
-                  queueMicrotask(() => setMoreWidth(measured))
-                }
-              }}
-              onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
-                event.stopPropagation()
-                if (event.button === RIGHT_BUTTON) return
-                menu.close()
-                cancelDelete()
-                loadMore()
-              }}
-            >
-              <text flexGrow={1} flexShrink={1} overflow="hidden" wrapMode="none" style={{ fg: theme().textMuted }}>
-                {sidebarMoreLabel(more().dirs, more().sessions, Math.max(0, moreWidth() - 2))}
-              </text>
-            </box>
-          )}
-        </Show>
-        <Show when={query().trim() && filteredEntries().length === 0}>
+        <Show when={searchActive() && filteredEntries().length === 0}>
             <text style={{ fg: theme().textMuted }}>No title or directory matches · option+o to search transcripts</text>
         </Show>
         <Show when={navActive()}>
-          <box paddingTop={1}>
+          <box height={2}>
             <text style={{ fg: theme().textMuted }}>↑↓ move · enter open · option+p preview · option+s/r pin · option+d delete · esc done</text>
           </box>
         </Show>

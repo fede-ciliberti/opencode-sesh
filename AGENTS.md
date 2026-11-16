@@ -200,17 +200,18 @@ when opencode exits, the picker reopens with the query preserved.
   hides the footer while open; the overlay portals to the renderer root at
   `CONTEXT_MENU_Z_INDEX` (3500), above OpenCode's dialog layer (3000) — a lower
   value renders the picker's menu behind the dialog; Esc closes the menu before the picker and Enter in the
-  search input must not submit while it is open. The sidebar section opens on a
-  head of the recent list — the newest `SIDEBAR_DIRS` directories with
-  `SIDEBAR_SESSIONS` sessions each, plus every pinned session and the open one
-  wherever they sit, and a `Load more…` row that doubles both budgets; a search
-  lifts the budgets — and flex-grows to fill the sidebar, scrolling inside; the
-  picker remains the place for transcript search. The section caps its own
-  height (`maxHeight={sectionCeiling()}`, half of the terminal between 14 and 26
-  rows) because the slot gives the panel **no bounded height**: uncapped it grew
-  with its content, took the whole sidebar and left any section below it —
-  another plugin — unreachable, and the rows past the slot's clip were invisible
-  (that is why the budget row sits below the list but still on screen).
+  search input must not submit while it is open. The sidebar section lists the
+  newest `SIDEBAR_DIR_CHUNK` (10) directories **collapsed**; expanding one shows
+  its newest `SIDEBAR_SESSION_CHUNK` (10) sessions inside a scrollbox of its own
+  (`SIDEBAR_GROUP_ROWS` = 10, scrollbar visible), and the wheel at the end of
+  either list appends a chunk **one level at a time** — never both (a search
+  lifts the chunks). Every height is explicit (`sectionHeight()`,
+  `visibleListRows()`, the group box), so the section never grows past its
+  budget: half the terminal between 14 and 26 rows. The slot gives the panel
+  **no bounded height**, so an implicit-height section grew with its content,
+  took the whole sidebar and left any section below it — another plugin —
+  unreachable; worse, a content-driven `maxHeight` was ignored by Yoga and the
+  overflow was clipped **from the top**, eating the heading.
   Sessions waiting on the user (unanswered questions, stuck runs) pin a
   **Needs input** group above the directories, with the count in the heading —
   same `NEEDS_INPUT_SQL` heuristic as `bin/sesh-waiting.sh`. Message payloads are
@@ -333,10 +334,10 @@ clear a dialog (`forkEntry` checks `alive`).
   shadow the composer afterwards. Sidebar-internal clicks stop propagation so
   the outside-click release cannot undo them.
   Cursor state is derived from `itemRows()`, so hover and cursor resolve to the
-  same row. The section lists a head of the list — the newest directories with
-  N sessions each, pins and the open session always included, and a
-  `Load more…` row that doubles the budgets (`tests/tui.mjs` covers `headOf`);
-  overflow scrolls inside the stretched section.
+  same row, and only sessions of an expanded directory are in it. Moving the
+  cursor scrolls the outer list and the group's own box to keep the row visible.
+  A chunk keeps every pinned session and the open one wherever they sit
+  (`tests/tui.mjs` covers `headOf` and `groupBlockLines`).
   Its heading never wraps. Sidebar/picker titles and picker excerpts use
   `Highlighted` with `fit` to reserve a blank cell and show an ellipsis at
   their measured width rather than hard-clipping against the age column.

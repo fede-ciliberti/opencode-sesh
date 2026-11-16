@@ -48,7 +48,7 @@ function loadDataLayer(readExtraction = async () => { throw new Error("no local 
     "setTimeout",
     "setInterval", "clearInterval", "POLL_MS", "existsSync", "spawnSync", "spawn", "stringWidth",
     `${js}
-    return { fetchEntries, buildSearchIndex, buildSearchIndexRemote, createSessionPoll, resolveDbPath, openInCmuxWorkspace, inCmux, errorReason, withReason, fitDir, contextMenuWindow, SESSION_PAGE_LIMIT, SESSION_MAX, REMOTE_CONCURRENCY, TRANSCRIPT_BATCH, newestFirst, sidebarMarker, transcriptMatchExcerpt, filterPickerEntries, queryWaitingDetails, createDbClient, DB_WORKER_SOURCE, costRowsQuery, contextMenuItems, contextMenuBox, createContextMenu, TRANSCRIPT_BATCH_BYTES, transcriptCache, clearTranscriptCache, homeDirLabels, queryRunningIds, createRunningState, headOf, sidebarMoreLabel, SIDEBAR_DIRS, SIDEBAR_SESSIONS }`,
+    return { fetchEntries, buildSearchIndex, buildSearchIndexRemote, createSessionPoll, resolveDbPath, openInCmuxWorkspace, inCmux, errorReason, withReason, fitDir, contextMenuWindow, SESSION_PAGE_LIMIT, SESSION_MAX, REMOTE_CONCURRENCY, TRANSCRIPT_BATCH, newestFirst, sidebarMarker, transcriptMatchExcerpt, filterPickerEntries, queryWaitingDetails, createDbClient, DB_WORKER_SOURCE, costRowsQuery, contextMenuItems, contextMenuBox, createContextMenu, TRANSCRIPT_BATCH_BYTES, transcriptCache, clearTranscriptCache, homeDirLabels, queryRunningIds, createRunningState, headOf, groupBlockLines, SIDEBAR_DIR_CHUNK, SIDEBAR_SESSION_CHUNK, SIDEBAR_GROUP_ROWS }`,
   )
   return factory(
     readExtraction,
@@ -415,39 +415,41 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   assert.equal(truncated, false)
 }
 
-// The sidebar lists a head of the recent list, not everything: the newest
-// SIDEBAR_DIRS directories with SIDEBAR_SESSIONS sessions each, plus any
-// pinned session and the open one wherever they sit, and a "Load more…" row
-// that doubles both budgets. A search lifts the budgets.
+// The sidebar lists the newest directories collapsed; expanding one shows its
+// newest chunk of sessions in a scrollbox. Both levels grow by a chunk when the
+// scroll reaches their end, so the counts stay fixed and the section never
+// depends on Yoga shrinking it.
 {
   const source = readFileSync(join(root, "tui-plugins/sesh-panel/tui.tsx"), "utf8")
-  assert.match(source, /const SIDEBAR_DIRS = 6/)
-  assert.match(source, /const SIDEBAR_SESSIONS = 4/)
-  assert.match(source, /const moreRow = createMemo\(\(\) => sidebarTree\(\)\.more\)/, "the budget row lives outside the scrolled tree")
-  assert.match(source, /maxHeight=\{sectionCeiling\(\)\}/, "the section caps its own height")
-  assert.match(source, /const sectionCeiling = createMemo\(\(\) => Math\.max\(SIDEBAR_MIN_ROWS, Math\.min\(SIDEBAR_MAX_ROWS, Math\.floor\(term\.size\(\)\.height \/ 2\)\)\)\)/, "the cap is half the terminal, floored and ceilinged")
-  assert.match(source, /const loadMore = /)
-  assert.match(source, /const searchActive = \(\) => query\(\)\.trim\(\)\.length > 0/)
+  assert.match(source, /const SIDEBAR_DIR_CHUNK = 10/)
+  assert.match(source, /const SIDEBAR_SESSION_CHUNK = 10/)
+  assert.match(source, /const SIDEBAR_GROUP_ROWS = 10/)
+  assert.match(source, /function groupBlockLines\(/)
+  assert.doesNotMatch(source, /maxHeight=\{sectionCeiling/, "the section sizes itself with explicit heights")
+  assert.match(source, /height=\{sectionHeight\(\)\}/, "the section box has an explicit height")
+  assert.match(source, /height=\{visibleListRows\(\)\}/, "the list box has an explicit height")
+  assert.match(source, /const visibleListRows = createMemo\(\(\) => Math\.min\(listRows\(\), Math\.max\(1, contentLines\(\)\)\)\)/)
+  assert.match(source, /verticalScrollbarOptions=\{\{ visible: true \}\}/, "the group scrollbox shows its scrollbar")
+  assert.match(source, /onDirectoryScroll/, "the directory list grows on scroll")
+  assert.match(source, /onGroupScroll/, "a group grows on its own scroll")
   const layer = loadDataLayer()
-  assert.equal(layer.SIDEBAR_DIRS, 6)
-  assert.equal(layer.SIDEBAR_SESSIONS, 4)
+  assert.equal(layer.SIDEBAR_DIR_CHUNK, 10)
+  assert.equal(layer.SIDEBAR_SESSION_CHUNK, 10)
+  assert.equal(layer.SIDEBAR_GROUP_ROWS, 10)
   const list = Array.from({ length: 9 }, (_, index) => ({
     id: `ses_${index}`, title: `t${index}`, dir: "/w/p", updated: 900 - index * 10,
   }))
   const head = layer.headOf(list, 4, new Set(["ses_7"]))
-  assert.deepEqual(head.map((entry) => entry.id), ["ses_0", "ses_1", "ses_2", "ses_3", "ses_7"], "the newest N plus a pinned session, in list order")
+  assert.deepEqual(head.map((entry) => entry.id), ["ses_0", "ses_1", "ses_2", "ses_3", "ses_7"], "a chunk keeps the newest N plus a pinned session, in list order")
   assert.equal(head[4], list[7], "a kept session is the same record, not a copy")
-  assert.equal(layer.headOf(list, 4, new Set()).length, 4, "the budget alone caps the group")
-  assert.equal(layer.headOf(list, Number.POSITIVE_INFINITY, new Set()).length, 9, "a search lifts the budget")
-  assert.equal(layer.headOf(list, 0, new Set(["ses_8"])).length, 1, "the budget never hides a pin")
-  assert.equal(layer.sidebarMoreLabel(2, 5, 60), "Load more… · 2 directories · 5 sessions")
-  assert.equal(layer.sidebarMoreLabel(2, 5), "Load more… · 2 dirs · 5 sess", "a narrow row falls back to the compact units")
-  assert.equal(layer.sidebarMoreLabel(1, 1, 60), "Load more… · 1 directory · 1 session", "the counts pluralise")
-  assert.equal(layer.sidebarMoreLabel(4, 5, 20), "Load more… · 4 dirs", "a squeezed row keeps one unit rather than a chopped count")
-  assert.equal(layer.sidebarMoreLabel(2, 5, 11), "Load more…", "below that the action stands alone")
-  assert.equal(layer.sidebarMoreLabel(0, 3), "Load more… · 3 sessions", "a lifted directory budget leaves only sessions to report")
+  assert.equal(layer.headOf(list, Number.POSITIVE_INFINITY, new Set()).length, 9, "a search lifts the chunk")
+  // A block is inline when it fits the group budget, capped otherwise; the
+  // trailing "more" row counts against that budget.
+  assert.equal(layer.groupBlockLines({ entries: list.slice(0, 3), shown: 3, total: 3 }), 3)
+  assert.equal(layer.groupBlockLines({ entries: list.slice(0, 3), shown: 3, total: 9 }), 4, "a truncated group keeps a row for the rest")
+  assert.equal(layer.groupBlockLines({ entries: list, shown: 9, total: 9 }), 9)
+  assert.equal(layer.groupBlockLines({ entries: list.slice(0, 10), shown: 10, total: 40 }), 10, "a long group tops at its window")
 }
-
 // The delete confirm targets the armed row wherever the pointer is: leaving
 // the armed row (edge-hover flicker) must not disarm the pending delete.
 {
@@ -1054,7 +1056,7 @@ function makeApi(sessions, { latency = 0 } = {}) {
   assert.match(sidebar, /const menuView = createMenuView\(props\.api, menuState\)/)
   assert.match(sidebar, /<ContextMenuOverlay api=\{props\.api\} menu=\{menu\} view=\{menuView\} \/>/)
   assert.match(sidebar, /fork: \(entry\) => void forkSession\(props\.api, entry\)/)
-  assert.match(sidebar, /event\.button === RIGHT_BUTTON[\s\S]{0,120}menu\.open\(row\.entry, event\.x, event\.y\)/)
+  assert.match(sidebar, /event\.button === RIGHT_BUTTON[\s\S]{0,160}menu\.open\(entry, event\.x, event\.y\)/, "a session row opens the shared menu at the pointer")
   assert.match(
     sidebar,
     /onMouseDown=\{\(event: \{ button\?: number; stopPropagation: \(\) => void \}\) => \{\s*event\.stopPropagation\(\)\s*if \(event\.button === RIGHT_BUTTON\) return\s*toggleGroup\(row\.dir\)/,
@@ -1073,7 +1075,7 @@ function makeApi(sessions, { latency = 0 } = {}) {
   assert.match(sidebar, /if \(props\.api\.ui\.dialog\.open \|\| props\.api\.mode\.current\(\) !== BASE_MODE\) \{\s*menu\.close\(\)/)
   assert.match(sidebar, /blocked: \(\) => props\.api\.ui\.dialog\.open \|\| props\.api\.mode\.current\(\) !== BASE_MODE/)
   assert.match(sidebar, /renderer\.on\("resize", closeMenu\)[\s\S]*renderer\.off\("resize", closeMenu\)/)
-  assert.match(sidebar, /onMouseScroll=\{\(\) => menu\.close\(\)\}/)
+  assert.match(sidebar, /onMouseScroll=\{onDirectoryScroll\}/, "the directory list grows on scroll and closes the menu")
   assert.match(overlay, /props\.menu\.click\(view\(\)\.start \+ shown\(\), event\.button\)/)
   assert.match(
     overlay,
@@ -1090,7 +1092,7 @@ function makeApi(sessions, { latency = 0 } = {}) {
   const hover = sidebar.slice(sidebar.indexOf("const hoveredEntry"), sidebar.indexOf("// Keyboard navigation is opt-in"))
   assert.doesNotMatch(hover, /key: "\/"/, "hovering a sidebar row must not capture slash commands")
   assert.match(hover, /key: "alt\+d"/, "Option-D remains available while hovering a sidebar row")
-  assert.match(sidebar, /onMouseMove=\{\(\) => setHovered\(row\.entry\.id\)\}/)
+  assert.match(sidebar, /onMouseMove=\{\(\) => setHovered\(entry\.id\)\}/)
 }
 
 // Transcript preview esc label allows closing on click

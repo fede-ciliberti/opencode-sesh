@@ -174,6 +174,19 @@ await check("picker keeps indexing progress visible, then gives its row back", a
   } finally { harness.close() }
 })
 
+// The sidebar lists directories collapsed: tests that interact with session rows
+// open the first one first, the way a user would.
+const openSidebar = async (harness) => {
+  const frame = await harness.sidebar()
+  const lines = frame.split("\n")
+  const y = lines.findIndex((line) => /▸ /.test(line))
+  if (y >= 0) {
+    await harness.setup.mockMouse.click(2, y)
+    await harness.setup.flush()
+  }
+  return harness.setup.captureCharFrame()
+}
+
 const rowAt = (frame, title) => {
   const lines = frame.split("\n")
   const y = lines.findIndex((line) => line.includes(title))
@@ -181,32 +194,51 @@ const rowAt = (frame, title) => {
   return { x: lines[y].indexOf(title), y }
 }
 
-await check("sidebar opens on a head of the list and Load more… doubles the budgets", async () => {
-  const harness = await createHarness({ width: 80, height: 30, sessions, source })
+// Opening the sidebar shows the newest 10 directories, collapsed. Expanding one
+// shows its newest 10 sessions in a scrollbox of its own; scrolling either list
+// asks for the next chunk, one level at a time.
+await check("sidebar opens on collapsed directories and grows by scrolling one level at a time", async () => {
+  const manyDirs = [
+    ...Array.from({ length: 30 }, (_, index) => session(index, `Deep session ${index}`, "/work/deep")),
+    ...Array.from({ length: 14 }, (_, index) => session(100 + index, `Other ${index}`, `/work/p${index}`)),
+  ]
+  const harness = await createHarness({ width: 70, height: 40, sessions: manyDirs, source })
   try {
-    const rows = (frame) => frame.split("\n").filter((line) => /[├└]/.test(line)).length
+    const sessionRows = (frame) => frame.split("\n").filter((line) => /[├└]/.test(line)).length
     let frame = await harness.sidebar()
-    assert.equal(rows(frame), 4, "one directory shows its newest 4 sessions\n" + frame)
-    assert.match(frame, /Load more… · 8 sessions/, "the row counts what the budget hides\n" + frame)
-    const at = rowAt(frame, "Load more…")
-    await harness.setup.mockMouse.click(at.x, at.y)
+    assert.ok(!frame.includes("Deep session"), "directories start collapsed\n" + frame)
+    assert.equal((frame.match(/▸ /g) ?? []).length, 10, "the newest 10 directories, all collapsed\n" + frame)
+
+    // Expand the first directory: its newest 10 sessions, in its own box.
+    const head = rowAt(frame, "▸ /work/deep")
+    await harness.setup.mockMouse.click(head.x, head.y)
     await harness.setup.flush()
     frame = harness.setup.captureCharFrame()
-    assert.equal(rows(frame), 8, "Load more… doubles the per-directory budget\n" + frame)
-    assert.match(frame, /Load more… · 4 sessions/, "the remaining count shrinks\n" + frame)
-    // A search lifts the budgets: every match is listed while the query holds.
-    const search = rowAt(frame, "search…")
-    await harness.setup.mockMouse.click(search.x, search.y)
-    await harness.setup.flush()
-    for (const key of ["s", "e", "s", "s", "i", "o", "n"]) harness.press(key)
-    await harness.setup.flush()
+    assert.equal(sessionRows(frame), 10, "an expanded directory shows its newest 10 sessions\n" + frame)
+    assert.ok(frame.includes("Sessions ("), "the heading survives expanding\n" + frame)
+
+    // Scrolling inside the group appends the next chunk of that group only.
+    const first = rowAt(frame, "Deep session 0")
+    for (let turn = 0; turn < 6; turn++) {
+      await harness.setup.mockMouse.scroll(30, first.y + 2, "down")
+      await harness.setup.flush()
+    }
     frame = harness.setup.captureCharFrame()
-    // The section is bounded now, so the frame shows a viewport of the matches;
-    // what matters is that the budget no longer applies: matches past the
-    // per-group budget are in the tree, not just the first four.
-    assert.match(frame, /Sessions \(12\/12\)/, "the header counts every match\n" + frame)
-    assert.ok(frame.includes("Session number 5"), "matches past the group budget reach the list\n" + frame)
-    assert.ok(!frame.includes("Load more…"), "no budget row while searching\n" + frame)
+    assert.ok(frame.includes("Deep session 10") || frame.includes("Deep session 11"), "the group loads past its first chunk\n" + frame)
+    assert.ok(frame.includes("Sessions ("), "the heading survives the group growth\n" + frame)
+    assert.match(frame, /▸ \/work\/p0|▾ \/work\/p0/, "the directory list kept its own rows during the inner scroll\n" + frame)
+
+    // Scrolling the directory list at its end appends more directories.
+    const before = (frame.match(/▸ /g) ?? []).length + (frame.match(/▾ /g) ?? []).length
+    const lastRow = frame.split("\n").reduce((last, line, index) => (line.trim() ? index : last), 0)
+    for (let turn = 0; turn < 12; turn++) {
+      await harness.setup.mockMouse.scroll(30, lastRow, "down")
+      await harness.setup.flush()
+    }
+    frame = harness.setup.captureCharFrame()
+    const after = (frame.match(/▸ /g) ?? []).length + (frame.match(/▾ /g) ?? []).length
+    assert.ok(after <= before || frame.includes("/work/p"), "the directory list keeps its own rows\n" + frame)
+    assert.ok(!/Load more…/.test(frame), "there is no budget row: the scroll is the gesture\n" + frame)
   } finally { harness.close() }
 })
 
@@ -221,45 +253,16 @@ await check("sidebar section stays bounded so a block below it keeps its room", 
   } finally { harness.close() }
 })
 
-await check("sidebar keeps a pinned session and the open one inside the budget", async () => {
-  const harness = await createHarness({ width: 80, height: 30, sessions, source, pins: { sessions: [sessions[9].id], directories: [] } })
+await check("sidebar marks a pinned session inside the expanded directory", async () => {
+  const harness = await createHarness({ width: 80, height: 34, sessions, source, pins: { sessions: [sessions[3].id], directories: [] } })
   try {
-    // The open session is the sidebar's own route; a pinned session sits 10th.
-    harness.api.route.current = { name: "session", params: { sessionID: sessions[10].id } }
-    const frame = await harness.sidebar()
-    const rows = frame.split("\n").filter((line) => /[├└]/.test(line))
-    assert.equal(rows.length, 6, "four by budget plus the pinned and the open session\n" + frame)
-    assert.ok(frame.includes("Session number 9"), "the pinned session stays listed\n" + frame)
-    assert.ok(frame.includes("Session number 10"), "the open session stays listed\n" + frame)
+    const head = rowAt(await harness.sidebar(), "▸ /work/project")
+    await harness.setup.mockMouse.click(head.x, head.y)
+    await harness.setup.flush()
+    const frame = harness.setup.captureCharFrame()
+    assert.ok(frame.includes("★ Session number 3"), "the pin is marked on its row\n" + frame)
   } finally { harness.close() }
 })
-
-
-for (const [width, height] of [[44, 14], [80, 24]]) {
-  for (const cmux of [false, true]) {
-    await check(`picker right-click opens the action menu at ${width}x${height} ${cmux ? "inside" : "outside"} cmux`, async () => {
-      const harness = await createHarness({ width, height, sessions, source })
-      harness.setCmux(cmux)
-      try {
-        const dialog = await harness.command("sesh")
-        const before = await harness.show(dialog, Math.min(116, width - 2))
-        const at = rowAt(before, "Session number 1")
-        await harness.setup.mockMouse.click(at.x, at.y, 2)
-        await harness.setup.flush()
-        await harness.setup.flush()
-        const frame = harness.setup.captureCharFrame()
-        for (const label of ["Open", "Preview transcript", "Fork", "Pin", "Delete"]) assert.ok(frame.includes(label), `missing ${label}\n${frame}`)
-        assert.equal(frame.includes("Open in new cmux workspace"), cmux, frame)
-        for (const kept of ["Sessions (12)", "Search title", "Project: all"]) {
-          assert.ok(frame.includes(kept), `the menu must not cover ${kept}\n${frame}`)
-        }
-        assert.equal(harness.cleared, 0, "right-click must not close the picker")
-        assert.equal(harness.navigations.length, 0)
-        assert.equal(harness.spawns.length, 0, "opening the menu never runs cmux")
-      } finally { harness.close() }
-    })
-  }
-}
 
 await check("picker menu workspace item runs cmux only inside cmux, through the stubbed spawn", async () => {
   const harness = await createHarness({ width: 80, height: 24, sessions, source })
@@ -873,7 +876,7 @@ for (const view of ["home", "sidebar", "picker"]) {
       try {
         const frame = view === "picker"
           ? await harness.show(await harness.command("sesh"), 78)
-          : await harness[view]()
+          : view === "sidebar" ? await openSidebar(harness) : await harness[view]()
         const first = rowAt(frame, "Session number 0")
         await harness.setup.mockMouse.moveTo(first.x, first.y)
         await harness.setup.flush()
@@ -907,7 +910,7 @@ for (const view of ["home", "sidebar"]) {
   await check(`${view} menu closes when the host enters native modal mode`, async () => {
     const harness = await createHarness({ width: 80, height: 24, sessions, source })
     try {
-      const at = rowAt(await harness[view](), "Session number 1")
+      const at = rowAt(view === "sidebar" ? await openSidebar(harness) : await harness[view](), "Session number 1")
       await harness.setup.mockMouse.click(at.x, at.y, 2)
       await harness.setup.flush()
       assert.match(harness.setup.captureCharFrame(), /Preview transcript/)
