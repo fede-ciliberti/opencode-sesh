@@ -1786,6 +1786,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   const [sectionCollapsed, setSectionCollapsed] = createSignal(false)
   const [expandedDirs, setExpandedDirs] = createSignal<Record<string, boolean>>({})
   const [hovered, setHovered] = createSignal<string>()
+  const [hoveredGroup, setHoveredGroup] = createSignal<string>()
   const preview = createTranscriptPreview(props.api)
   const [menuState, setMenuState] = createSignal<MenuState>()
   const [query, setQuery] = createSignal("")
@@ -2054,6 +2055,11 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   // Animates for whichever row the pointer rests on or the keyboard cursor
   // sits on — the same row `isActive` paints.
   const activeRow = () => {
+    const dir = hoveredGroup()
+    if (dir) {
+      const row = sidebarRows().find((item) => item.kind === "group" && item.dir === dir)
+      if (row && row.kind === "group") return `${row.pinned ? "★ " : ""}${row.label}`
+    }
     const id = hovered() ?? (navActive() ? itemRows()[cursor()]?.id : undefined)
     const entry = id ? entries().find((item) => item.id === id) : undefined
     return entry ? `${props.pins().sessions.includes(entry.id) ? "★ " : ""}${entry.title}` : ""
@@ -2224,6 +2230,7 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   const onRootMouseDown = () => {
     menu.close()
     preview.closeIfOpen()
+    setHoveredGroup(undefined)
     if (searching()) setSearching(false)
     // A click anywhere outside the sidebar means input is back in the main
     // view: release the nav layer, hover shortcuts and any armed delete so
@@ -2392,6 +2399,13 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
     return marqueeWindow(label, marquee(), width)
   }
 
+  const groupTitle = (row: { dir: string; label: string; pinned: boolean }) => {
+    const width = SIDEBAR_GROUP_WIDTH - (row.pinned ? 2 : 0)
+    const label = `${row.pinned ? "★ " : ""}${row.label}`
+    if (hoveredGroup() !== row.dir || query().trim()) return truncate(label, width)
+    return marqueeWindow(label, marquee(), width)
+  }
+
   const sessionRow = (entry: Entry, last: boolean) => {
     const marker = createMemo(() => markerOf(entry.id))
     return (
@@ -2554,14 +2568,24 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
           <For each={sidebarRows()}>
           {(row) => {
             if (row.kind === "group") return (
-              <box flexDirection="row" height={1} onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
-                event.stopPropagation()
-                if (event.button === RIGHT_BUTTON) return
-                toggleGroup(row.dir)
-              }}>
+              <box
+                flexDirection="row"
+                height={1}
+                onMouseOver={() => {
+                  setHoveredGroup(row.dir)
+                  setHovered(undefined)
+                }}
+                onMouseMove={() => setHoveredGroup(row.dir)}
+                onMouseOut={() => setHoveredGroup(undefined)}
+                onMouseDown={(event: { button?: number; stopPropagation: () => void }) => {
+                  event.stopPropagation()
+                  if (event.button === RIGHT_BUTTON) return
+                  toggleGroup(row.dir)
+                }}
+              >
                 <text flexGrow={1} flexShrink={1} wrapMode="none">
                   <span style={{ fg: theme().textMuted }}>{row.expanded ? "▾ " : "▸ "}</span>
-                  <b>{row.pinned ? "★ " : ""}{truncate(row.label, SIDEBAR_GROUP_WIDTH - (row.pinned ? 2 : 0))}</b>
+                  <b>{groupTitle(row)}</b>
                 </text>
                 <text flexShrink={0} style={{ fg: theme().textMuted }}>
                   {" "}({row.count})

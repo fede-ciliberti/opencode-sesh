@@ -271,6 +271,27 @@ await check("hovering a session row scrolls its truncated title", async () => {
   } finally { harness.close() }
 })
 
+// Directory labels overflow too, and scroll the same way while hovered.
+await check("hovering a directory header scrolls its truncated label", async () => {
+  const dirs = [session(0, "una", "/worktrees/envios-agente-ajustes-de-layout-y-scroll")]
+  const harness = await createHarness({ width: 46, height: 24, sessions: dirs, source })
+  try {
+    const frame = await harness.sidebar()
+    const at = rowAt(frame, "▸ /worktrees")
+    const header = (text) => text.split("\n")[at.y] ?? ""
+    assert.match(header(frame), /envios-agente-ajus…/, "a resting header keeps its ellipsis\n" + frame)
+    await harness.setup.mockMouse.moveTo(at.x + 6, at.y)
+    await harness.setup.flush()
+    const hovered = harness.setup.captureCharFrame()
+    assert.ok(!/envios-agente-ajus…/.test(header(hovered)), "the hovered header drops the ellipsis\n" + hovered)
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    await harness.setup.flush()
+    const scrolled = harness.setup.captureCharFrame()
+    assert.notEqual(header(hovered), header(scrolled), "the label keeps scrolling while hovered\n" + scrolled)
+    assert.match(header(scrolled), /\(1\)/, "the count stays at the right edge\n" + scrolled)
+  } finally { harness.close() }
+})
+
 await check("clicking the sidebar triangle collapses the section, not the keyboard layer", async () => {
   const harness = await createHarness({ width: 60, height: 30, sessions, source })
   try {

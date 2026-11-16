@@ -14,7 +14,7 @@ Bocetos en `docs/mockups/`: el HTML es la fuente versionable, el PNG es derivado
 |---|---|
 | Cabecera | Estilo del host (MCP): **▼/▶** + `Sessions` en negrita + total tenue; el triángulo colapsa la sección y el título activa la navegación por teclado. Debajo, el buscador |
 | Filas | Bullet `•` (● la abierta, spinner la que corre, ▸ el cursor), título y edad tenue a la derecha — sin líneas de árbol |
-| Título largo | En reposo, truncado con `…`; con el mouse encima o el cursor de teclado sobre la fila, **marquesina** (scroll de 1 celda cada 140 ms). Con query activa no se mueve: el resaltado manda |
+| Texto largo | Sesiones **y** directorios: en reposo truncados con `…`; con el mouse encima (o el cursor de teclado en una sesión), **marquesina a la velocidad del host** (1 celda cada 80 ms tras 600 ms, un pase, gap `" · "`). Con query activa no se mueve: el resaltado manda |
 | Alturas | **Explícitas** en todos los niveles (sección, lista, bloque de grupo). La sección mide como máximo media terminal (14–26 filas) y nunca crece con el contenido |
 | Directorios | Los últimos `SIDEBAR_DIR_CHUNK` (10), **colapsados**; primero fijados, después por recencia |
 | Sesiones | Al expandir, las últimas `SIDEBAR_SESSION_CHUNK` (10) dentro de un bloque con `SIDEBAR_GROUP_ROWS` (10) filas y barra propia |

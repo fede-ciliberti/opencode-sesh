@@ -251,8 +251,9 @@ Option-P to preview, Option-S to pin a session, Option-R to pin its directory,
 Option-D to arm deletion, Esc to leave). Press Option-D again, `y`, or Enter to confirm
 an armed deletion; `n` or Esc cancels. Pinned
 directories rise first, while sessions within each directory are ordered by
-last update, newest first. A session title too long for the column scrolls while
-you point at it (or move the keyboard cursor over it), like the session tabs do.
+last update, newest first. A title too long for the column — a session or a
+directory — scrolls while you point at it (or move the keyboard cursor over a
+session), like the session tabs do.
 The section lists the newest **10 directories
 collapsed**: click one to expand its newest 10 sessions in a block that scrolls
 on its own, and the wheel at the end of either list pulls the next 10 (one level

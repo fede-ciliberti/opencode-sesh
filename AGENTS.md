@@ -208,8 +208,9 @@ when opencode exits, the picker reopens with the query preserved.
   renders dimmer than the native sections (the harness cannot reproduce the
   inheritance — `tests/tui.mjs` asserts the explicit colour). Session rows are bullets (`•` idle, `●` the open
   one, a spinner while running, `▸` for the cursor), not tree branches. A title
-  that does not fit rests truncated with an ellipsis and **scrolls while its row
-  is hovered or holds the keyboard cursor** (`marqueeWindow` + `createMarquee`,
+  that does not fit — a session's or a directory's label — rests truncated with
+  an ellipsis and **scrolls while its row is hovered or holds the keyboard
+  cursor** (`marqueeWindow` + `createMarquee`,
   one timer for the active row only). Timings are the host's own
   (`packages/tui/src/util/marquee.ts`): 80 ms per column after a 600 ms pause,
   one pass per hover, `" · "` between passes. While a query is active the title
