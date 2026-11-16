@@ -210,8 +210,10 @@ when opencode exits, the picker reopens with the query preserved.
   one, a spinner while running, `▸` for the cursor), not tree branches. A title
   that does not fit rests truncated with an ellipsis and **scrolls while its row
   is hovered or holds the keyboard cursor** (`marqueeWindow` + `createMarquee`,
-  one timer for the active row only); while a query is active the title stays
-  put so the match highlight stays readable. It lists the
+  one timer for the active row only). Timings are the host's own
+  (`packages/tui/src/util/marquee.ts`): 80 ms per column after a 600 ms pause,
+  one pass per hover, `" · "` between passes. While a query is active the title
+  stays put so the match highlight stays readable. It lists the
   newest `SIDEBAR_DIR_CHUNK` (10) directories **collapsed**; expanding one shows
   its newest `SIDEBAR_SESSION_CHUNK` (10) sessions inside a scrollbox of its own
   (`SIDEBAR_GROUP_ROWS` = 10, scrollbar visible), and the wheel at the end of

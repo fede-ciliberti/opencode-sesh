@@ -268,40 +268,72 @@ function groupBlockLines(row: { entries: Entry[]; shown: number; total: number }
   return inline <= SIDEBAR_GROUP_ROWS ? inline : SIDEBAR_GROUP_ROWS
 }
 
-// Marquee for a row whose title does not fit: the label scrolls through the
-// same cell budget the resting row uses, with a gap between passes. Only the
-// hovered row animates.
-const MARQUEE_GAP = "   "
-const MARQUEE_MS = 140
+// Marquee for a row whose title does not fit. Timings and the gap mirror the
+// host's own session tabs (`packages/tui/src/util/marquee.ts` and
+// `createMarquee` in `session-tabs.tsx`): one column every 80 ms, after a
+// 600 ms pause, one pass per hover, " · " between passes.
+const MARQUEE_GAP = " · "
+const MARQUEE_MS = 80
+const MARQUEE_DELAY = 600
+
+function marqueeCycleWidth(text: string): number {
+  return stringWidth(text + MARQUEE_GAP)
+}
 
 function marqueeWindow(text: string, offset: number, width: number): string {
   if (width <= 0) return ""
-  if (stringWidth(text) <= width) return text
-  const cells = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text + MARQUEE_GAP)]
-    .map((part) => part.segment)
-  const start = ((offset % cells.length) + cells.length) % cells.length
-  let out = ""
-  for (let index = 0; index < cells.length && stringWidth(out) < width; index++) {
-    out += cells[(start + index) % cells.length]
+  const graphemes = (value: string) => [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(value)].map((part) => part.segment)
+  const take = (cells: string[]) => {
+    let out = ""
+    for (const cell of cells) {
+      if (stringWidth(out + cell) > width) break
+      out += cell
+    }
+    return out
   }
-  return out
+  if (stringWidth(text) <= width || offset <= 0) return take(graphemes(text))
+  const loop = [...graphemes(text), ...graphemes(MARQUEE_GAP)]
+  const cursor = offset % marqueeCycleWidth(text)
+  let start = 0
+  let walked = 0
+  while (start < loop.length && walked < cursor) {
+    walked += stringWidth(loop[start])
+    start++
+  }
+  return take([...loop.slice(start), ...loop])
 }
 
-function createMarquee(active: () => boolean): () => number {
+function createMarquee(active: () => boolean, label: () => string): () => number {
   const [offset, setOffset] = createSignal(0)
+  let delay: ReturnType<typeof setTimeout> | undefined
   let timer: ReturnType<typeof setInterval> | undefined
-  createEffect(() => {
-    if (active() && !timer) {
-      timer = setInterval(() => setOffset((value) => value + 1), MARQUEE_MS)
-    } else if (!active() && timer) {
-      clearInterval(timer)
-      timer = undefined
-      setOffset(0)
-    }
-  })
-  onCleanup(() => {
+  const clear = () => {
+    if (delay) clearTimeout(delay)
     if (timer) clearInterval(timer)
+    delay = undefined
+    timer = undefined
+  }
+  createEffect(() => {
+    if (!active()) {
+      clear()
+      setOffset(0)
+      return
+    }
+    clear()
+    setOffset(0)
+    const cycle = marqueeCycleWidth(label())
+    delay = setTimeout(() => {
+      setOffset(1)
+      timer = setInterval(() => {
+        setOffset((value) => {
+          if (value + 1 < cycle) return value + 1
+          clear()
+          return 0
+        })
+      }, MARQUEE_MS)
+    }, MARQUEE_DELAY)
   })
+  onCleanup(clear)
   return offset
 }
 
@@ -2021,7 +2053,12 @@ function SidebarSessions(props: { api: TuiPluginApi } & PinProps) {
   const spinFrame = createSpinner(() => itemRows().some((entry) => markerOf(entry.id) === "running"))
   // Animates for whichever row the pointer rests on or the keyboard cursor
   // sits on — the same row `isActive` paints.
-  const marquee = createMarquee(() => (navActive() || hovered() !== undefined) && !query().trim())
+  const activeRow = () => {
+    const id = hovered() ?? (navActive() ? itemRows()[cursor()]?.id : undefined)
+    const entry = id ? entries().find((item) => item.id === id) : undefined
+    return entry ? `${props.pins().sessions.includes(entry.id) ? "★ " : ""}${entry.title}` : ""
+  }
+  const marquee = createMarquee(() => activeRow().length > 0 && !query().trim(), activeRow)
 
   const cancelDelete = () => {
     if (confirmTimer) clearTimeout(confirmTimer)

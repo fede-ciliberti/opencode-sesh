@@ -261,7 +261,9 @@ await check("hovering a session row scrolls its truncated title", async () => {
     await harness.setup.flush()
     const first = harness.setup.captureCharFrame()
     assert.ok(!/Nombre y resultado en conf…/.test(first), "the hovered row drops the ellipsis\n" + first)
-    await new Promise((resolve) => setTimeout(resolve, 320))
+    // The host pauses MARQUEE_DELAY (600 ms) before the first column, then moves
+    // one every 80 ms: wait past both so the shift is observable.
+    await new Promise((resolve) => setTimeout(resolve, 900))
     await harness.setup.flush()
     const scrolled = harness.setup.captureCharFrame()
     const line = (frame) => frame.split("\n").find((text) => /resultado/.test(text)) ?? ""

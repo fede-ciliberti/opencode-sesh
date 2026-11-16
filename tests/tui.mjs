@@ -48,7 +48,7 @@ function loadDataLayer(readExtraction = async () => { throw new Error("no local 
     "setTimeout",
     "setInterval", "clearInterval", "POLL_MS", "existsSync", "spawnSync", "spawn", "stringWidth",
     `${js}
-    return { fetchEntries, buildSearchIndex, buildSearchIndexRemote, createSessionPoll, resolveDbPath, openInCmuxWorkspace, inCmux, errorReason, withReason, fitDir, contextMenuWindow, SESSION_PAGE_LIMIT, SESSION_MAX, REMOTE_CONCURRENCY, TRANSCRIPT_BATCH, newestFirst, sidebarMarker, transcriptMatchExcerpt, filterPickerEntries, queryWaitingDetails, createDbClient, DB_WORKER_SOURCE, costRowsQuery, contextMenuItems, contextMenuBox, createContextMenu, TRANSCRIPT_BATCH_BYTES, transcriptCache, clearTranscriptCache, homeDirLabels, queryRunningIds, createRunningState , headOf, groupBlockLines, marqueeWindow, SIDEBAR_DIR_CHUNK, SIDEBAR_SESSION_CHUNK, SIDEBAR_GROUP_ROWS }`,
+    return { fetchEntries, buildSearchIndex, buildSearchIndexRemote, createSessionPoll, resolveDbPath, openInCmuxWorkspace, inCmux, errorReason, withReason, fitDir, contextMenuWindow, SESSION_PAGE_LIMIT, SESSION_MAX, REMOTE_CONCURRENCY, TRANSCRIPT_BATCH, newestFirst, sidebarMarker, transcriptMatchExcerpt, filterPickerEntries, queryWaitingDetails, createDbClient, DB_WORKER_SOURCE, costRowsQuery, contextMenuItems, contextMenuBox, createContextMenu, TRANSCRIPT_BATCH_BYTES, transcriptCache, clearTranscriptCache, homeDirLabels, queryRunningIds, createRunningState , headOf, groupBlockLines, marqueeWindow, marqueeCycleWidth, SIDEBAR_DIR_CHUNK, SIDEBAR_SESSION_CHUNK, SIDEBAR_GROUP_ROWS }`,
   )
   return factory(
     readExtraction,
@@ -459,7 +459,10 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   assert.equal(layer.marqueeWindow("abcdef", 0, 6), "abcdef")
   assert.equal(layer.marqueeWindow("abcdefghij", 0, 4), "abcd")
   assert.equal(layer.marqueeWindow("abcdefghij", 1, 4), "bcde")
-  assert.equal(layer.marqueeWindow("abcdefghij", 10, 4), "   a", "the gap is part of the loop")
+  // The gap is the host's own (" · ") and the cycle counts it, so one pass ends
+  // where the label starts again.
+  assert.equal(layer.marqueeCycleWidth("abcdefghij"), 13)
+  assert.equal(layer.marqueeWindow("abcdefghij", 10, 4), " · a", "the gap is part of the loop")
   assert.equal(layer.marqueeWindow("abcdefghij", 13, 4), "abcd", "the offset wraps after the gap")
 }
 // The delete confirm targets the armed row wherever the pointer is: leaving
