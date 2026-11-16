@@ -1,0 +1,50 @@
+/* sidebar.css — estilos propios del boceto del sidebar de sesh (TUI).
+   Complementa wireframe.css: filas monoespaciadas, sección acotada, bloques nativos. */
+
+.tui{display:grid;grid-template-columns:400px 1fr;height:680px;font-family:ui-sans-serif,system-ui,sans-serif}
+
+/* ---- columna sidebar (el slot real) ---- */
+.side{padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:#fff;border-right:2px solid #111;overflow:hidden}
+
+/* bloques nativos del sidebar (no son del plugin) */
+.native{border:1.5px dashed #9ca3af;border-radius:5px;padding:6px 8px;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#4b5563}
+.native b{color:#111;font-size:12.5px}
+.native .kv{color:#6b7280}
+
+/* la sección del plugin: ahora con techo propio */
+.section{border:2px solid #111;border-radius:6px;padding:6px 8px 4px;display:flex;flex-direction:column;gap:4px;position:relative}
+.section__tag{position:absolute;top:-9px;left:10px;background:#fff;padding:0 5px;font-size:10.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+.section__head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+.section__search{border:1.5px solid #111;border-radius:4px;padding:1px 6px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#6b7280}
+.section__search--active{color:#111}
+.section__more{border-top:1.5px dashed #111;margin-top:2px;padding-top:3px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.section__scroll{position:relative;padding-right:10px}
+.section__bar{position:absolute;right:0;top:0;bottom:0;width:3px;background:#e5e7eb}
+.section__bar i{position:absolute;left:0;right:0;height:55%;background:#111}
+
+/* ---- grupos ---- */
+.grp{margin-bottom:8px}
+.grp__head{display:flex;justify-content:space-between;gap:8px;border-bottom:1.5px dashed #111;padding-bottom:1px;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700}
+.grp__count{font-weight:600}
+.rows{position:relative;padding:1px 16px 1px 0;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.rows__bar{position:absolute;right:2px;top:1px;bottom:1px;width:4px;border:1.5px solid #111;border-radius:2px}
+.rows__bar i{position:absolute;left:0;right:0;height:38%;background:#111;border-radius:2px}
+.row{display:flex;gap:8px;align-items:baseline}
+.row__mark{flex:none;min-width:2.4ch}
+.row__t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row__age{flex:none;color:#6b7280}
+.row--load{color:#6b7280;font-style:italic}
+.row--cursor{background:#e5e7eb}
+
+/* ---- espacio debajo de la sección ---- */
+.below{border:1.5px dashed #111;border-radius:6px;padding:8px;font-size:12px;color:#374151;display:flex;flex-direction:column;gap:4px}
+.below .tag{font-weight:700;font-size:12.5px}
+.grow{flex:1}
+
+/* ---- anotaciones ---- */
+.notes{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.notes__t{margin:0 0 4px;font-size:15px}
+.note{display:flex;gap:10px;font-size:12.5px;line-height:1.45}
+.note__n{flex:none;width:20px;height:20px;border:1.5px solid #111;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700}
+.note__x{color:#4b5563}
+.chatbox{margin-top:auto;border:1.5px dashed #9ca3af;border-radius:6px;padding:10px;font-size:12px;color:#6b7280}

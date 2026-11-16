@@ -1,0 +1,81 @@
+<!doctype html>
+<!-- Estado 2: un directorio expandido — su bloque scrolleable con las últimas 10
+     sesiones, barra propia, y el scroll que pide más de a un nivel. -->
+<html lang="es"><head><meta charset="utf-8">
+<meta name="wf-viewport" content="1180x780">
+<title>Boceto — sidebar, directorio expandido</title>
+<link rel="stylesheet" href="./wireframe.css">
+<link rel="stylesheet" href="./sidebar.css">
+</head><body>
+
+<div class="win win--desktop">
+  <div class="win__bar">
+    <span class="win__title">opencode</span>
+    <span class="win__ctrls"><i>&#8212;</i><i>&#9723;</i><i>&#215;</i></span>
+  </div>
+  <div class="tui">
+    <aside class="side">
+      <div class="native"><b>Context</b><br><span class="kv">202,767 tokens · 20% used</span></div>
+      <div class="native"><b>▶ MCP</b> <span class="kv">(8 active)</span></div>
+
+      <div class="section">
+        <span class="section__tag">directorio expandido · bloque propio</span>
+        <div class="section__head">
+          <span><b>Sessions</b> <span style="color:#6b7280">(2435)</span></span>
+          <span style="color:#6b7280">▾ hide</span>
+        </div>
+        <div class="section__search">search…</div>
+        <div class="section__scroll">
+          <div class="grp">
+            <div class="grp__head"><span>▾ /…/PampacomSRL/agente</span><span class="grp__count">(323)</span></div>
+            <div class="rows">
+              <div class="rows__bar"><i style="top:34%"></i></div>
+              <div class="row"><span class="row__mark">├○</span><span class="row__t">Revisión del contrato de mail</span><span class="row__age">11d</span></div>
+              <div class="row"><span class="row__mark">├○</span><span class="row__t">Debug del worker de envío</span><span class="row__age">12d</span></div>
+              <div class="row row--cursor"><span class="row__mark">├▸</span><span class="row__t">Migración de plantillas MJML</span><span class="row__age">12d</span></div>
+              <div class="row"><span class="row__mark">├○</span><span class="row__t">Rate limit por dominio</span><span class="row__age">13d</span></div>
+              <div class="row"><span class="row__mark">├○</span><span class="row__t">Checklist de deploy del agente</span><span class="row__age">13d</span></div>
+              <div class="row"><span class="row__mark">├○</span><span class="row__t">Smoke post-deploy</span><span class="row__age">14d</span></div>
+              <div class="row"><span class="row__mark">├○</span><span class="row__t">Rotación de credenciales SMTP</span><span class="row__age">14d</span></div>
+              <div class="row"><span class="row__mark">├○</span><span class="row__t">Rebote masivo del 12/10</span><span class="row__age">15d</span></div>
+              <div class="row"><span class="row__mark">├○</span><span class="row__t">Panel de métricas de envío</span><span class="row__age">15d</span></div>
+              <div class="row"><span class="row__mark">└○</span><span class="row__t">Revisión del correo rebotado</span><span class="row__age">16d</span></div>
+              <div class="row row--load"><span>   ▾ 313 more…</span></div>
+            </div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/Tools/opencode-sesh</span><span class="grp__count">(5)</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/clients/PampacomSRL</span><span class="grp__count">(26)</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/sites/photazas.com</span><span class="grp__count">(158)</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/0m/oh-my-opagent-v2</span><span class="grp__count">(11)</span></div>
+          </div>
+          <div class="section__bar"><i style="height:44%"></i></div>
+        </div>
+      </div>
+
+      <div class="below">
+        <span class="tag">▶ otro plugin / bloque del host</span>
+        <span>sigue visible: expandir un directorio no cambia la altura de la sección</span>
+      </div>
+      <div class="grow"></div>
+    </aside>
+
+    <section class="notes">
+      <h3 class="notes__t">Expandido — el scroll de adentro pide sesiones, el de afuera pide directorios</h3>
+      <div class="note"><span class="note__n">1</span><span class="note__x"><b>Al expandir, las últimas 10 sesiones</b> del directorio aparecen dentro de un bloque con <b>su propia barra</b> (la de la izquierda en el dibujo). Las filas 11+ no están: se piden.</span></div>
+      <div class="note"><span class="note__n">2</span><span class="note__x"><b>Rueda dentro del bloque</b> → scrollea esas 10; al llegar al final pide 10 más <b>de ese directorio</b>. La fila <code>▾ 313 more…</code> marca cuánto queda.</span></div>
+      <div class="note"><span class="note__n">3</span><span class="note__x"><b>Rueda fuera del bloque</b> (sobre los headers) → scrollea la lista de directorios; al llegar al final agrega los siguientes 10. Nunca las dos cosas a la vez.</span></div>
+      <div class="note"><span class="note__n">4</span><span class="note__x"><b>El resto sigue colapsado</b>: expandir uno no abre los demás, y la altura de la sección no cambia — el bloque expandido entra en el techo y el contenedor scrollea.</span></div>
+      <div class="note"><span class="note__n">5</span><span class="note__x"><b>La cabecera no se mueve</b>: las alturas son explícitas (sección, lista y bloque), así que nada se desborda ni recorta el título al crecer.</span></div>
+      <div class="chatbox">chat / sesión abierta — sin cambios</div>
+    </section>
+  </div>
+</div>
+
+</body></html>

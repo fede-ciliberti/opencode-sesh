@@ -8,3 +8,6 @@ dist/
 .husky/_/
 package-lock.json
 __pycache__/
+
+# Renderer bootstrap copied by the design skill (re-create with render-mockups.sh)
+docs/mockups/vendor/

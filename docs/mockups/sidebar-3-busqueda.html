@@ -1,0 +1,68 @@
+<!doctype html>
+<!-- Estado 3: búsqueda — LIKE en SQLite, sin ventanas, misma sección acotada. -->
+<html lang="es"><head><meta charset="utf-8">
+<meta name="wf-viewport" content="1180x780">
+<title>Boceto — sidebar, búsqueda</title>
+<link rel="stylesheet" href="./wireframe.css">
+<link rel="stylesheet" href="./sidebar.css">
+</head><body>
+
+<div class="win win--desktop">
+  <div class="win__bar">
+    <span class="win__title">opencode</span>
+    <span class="win__ctrls"><i>&#8212;</i><i>&#9723;</i><i>&#215;</i></span>
+  </div>
+  <div class="tui">
+    <aside class="side">
+      <div class="native"><b>Context</b><br><span class="kv">202,767 tokens · 20% used</span></div>
+      <div class="native"><b>▶ MCP</b> <span class="kv">(8 active)</span></div>
+
+      <div class="section">
+        <span class="section__tag">búsqueda · única vista sin ventanas</span>
+        <div class="section__head">
+          <span><b>Sessions</b> <span style="color:#6b7280">(12/2435)</span></span>
+          <span style="color:#6b7280">▾ hide</span>
+        </div>
+        <div class="section__search section__search--active">deploy ▏ <span style="float:right;color:#6b7280">✕</span></div>
+        <div class="section__scroll">
+          <div class="grp">
+            <div class="grp__head"><span>▾ /…/PampacomSRL/agente</span><span class="grp__count">(5)</span></div>
+            <div class="rows">
+              <div class="row"><span class="row__mark">├○</span><span class="row__t"><u>Deploy</u> v1.3.0 del agente, en pr…</span><span class="row__age">4d</span></div>
+              <div class="row"><span class="row__mark">├○</span><span class="row__t"><u>deploy</u> manual: checklist y rollb…</span><span class="row__age">18d</span></div>
+              <div class="row"><span class="row__mark">└○</span><span class="row__t">Smoke post-<u>deploy</u> del agente</span><span class="row__age">24d</span></div>
+            </div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▾ /…/sites/photazas.com</span><span class="grp__count">(4)</span></div>
+            <div class="rows">
+              <div class="row"><span class="row__mark">├○</span><span class="row__t">Staging <u>deployed</u>, close?</span><span class="row__age">1h</span></div>
+              <div class="row"><span class="row__mark">├○</span><span class="row__t"><u>Deploy</u> a producción pendiente</span><span class="row__age">6d</span></div>
+              <div class="row"><span class="row__mark">└○</span><span class="row__t">Rollback del último <u>deploy</u></span><span class="row__age">9d</span></div>
+            </div>
+          </div>
+          <div class="section__bar"><i></i></div>
+        </div>
+        <div class="section__more">12 matches · <span style="color:#6b7280">esc para salir</span></div>
+      </div>
+
+      <div class="below">
+        <span class="tag">▶ otro plugin / bloque del host</span>
+        <span>visible también durante la búsqueda: la sección acotada no crece con los matches</span>
+      </div>
+      <div class="grow"></div>
+    </aside>
+
+    <section class="notes">
+      <h3 class="notes__t">Búsqueda — encuentra lo que no está cargado</h3>
+      <div class="note"><span class="note__n">1</span><span class="note__x">Con query, la lista pasa a <b>`LIKE` sobre SQLite</b> (título y directorio). Buscar solo entre las filas cargadas sería inútil: con ventanas, la mayoría nunca está en pantalla.</span></div>
+      <div class="note"><span class="note__n">2</span><span class="note__x">Los grupos <b>no dibujan ventana ni barra</b>: muestran todos sus matches. Hay tope de 50, reportado en el pie (<code>mostrando 50 de 312</code>) si se alcanza.</span></div>
+      <div class="note"><span class="note__n">3</span><span class="note__x">El header cuenta <code>(12/2435)</code>: matches sobre total, igual que hoy.</span></div>
+      <div class="note"><span class="note__n">4</span><span class="note__x">Al borrar la query vuelve el estado anterior <b>con los offsets que tenías</b>: grupos cargados y ventanas no se resetean.</span></div>
+      <div class="note"><span class="note__n">5</span><span class="note__x">El resaltado por transcripción sigue siendo del picker (<code>option+o</code>), que ya tiene su índice.</span></div>
+      <div class="chatbox">chat / sesión abierta — sin cambios</div>
+    </section>
+  </div>
+</div>
+
+</body></html>

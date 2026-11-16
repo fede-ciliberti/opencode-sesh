@@ -1,0 +1,64 @@
+/* wireframe.css — bocetos low-fi en blanco y negro (chrome de ventana + primitivas).
+   Compartido por todos los mockups de un proyecto. Copiar junto a los .html. */
+
+:root{
+  --wf-ink:#111;
+  --wf-line:1.5px solid var(--wf-ink);
+  --wf-dash:1.5px dashed var(--wf-ink);
+  --wf-muted:#6b7280;
+  --wf-bg:#f1f5f9;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;padding:24px;background:var(--wf-bg);color:var(--wf-ink);
+  font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px;
+}
+
+/* ---------- chrome de ventana ---------- */
+.win{background:#fff;border:var(--wf-line);border-radius:10px;overflow:hidden;box-shadow:0 6px 0 rgba(0,0,0,.06)}
+.win__bar{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:var(--wf-line);min-height:38px}
+.win__dot{width:12px;height:12px;border:var(--wf-line);border-radius:50%;flex:none}
+.win__tab{border:var(--wf-line);border-bottom:none;border-radius:7px 7px 0 0;padding:3px 12px;font-size:12px;margin-bottom:-10px}
+.win__url{flex:1;border:var(--wf-line);border-radius:999px;padding:4px 12px;font-size:12px;color:var(--wf-muted)}
+.win__title{font-weight:600;font-size:13px}
+.win__ctrls{margin-left:auto;display:flex;gap:9px;font-size:13px;line-height:1}
+.win__ctrls i{font-style:normal}
+.win__body{padding:0}
+
+/* variante: navegador */
+.win--browser{width:1180px}
+
+/* variante: app de escritorio */
+.win--desktop{width:1100px}
+
+/* variante: modal / diálogo */
+.win--modal{width:460px;box-shadow:0 10px 0 rgba(0,0,0,.10)}
+.win--modal .win__body{padding:16px}
+
+/* variante: mobile */
+.win--mobile{width:390px;border-radius:26px;padding:10px}
+.win--mobile .win__notch{width:120px;height:16px;border:var(--wf-line);border-radius:999px;margin:2px auto 10px}
+.win--mobile .win__body{
+  border:var(--wf-dash);border-radius:16px;min-height:720px;padding:12px;
+  display:flex;flex-direction:column;gap:12px;
+}
+
+/* backdrop para modal */
+.wf-backdrop{
+  background:rgba(15,23,42,.18);border:var(--wf-line);border-radius:10px;
+  min-height:420px;display:flex;align-items:center;justify-content:center;padding:32px;
+}
+
+/* ---------- primitivas de layout ---------- */
+.wf-app{display:grid;grid-template-columns:200px 1fr;height:640px}
+.wf-side{border-right:var(--wf-dash);padding:14px;display:flex;flex-direction:column;gap:10px}
+.wf-main{padding:14px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.wf-row{display:flex;gap:10px;align-items:center}
+.wf-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.wf-kpi{border:var(--wf-line);padding:12px;border-radius:6px}
+.wf-box{border:var(--wf-line);border-radius:6px;padding:12px}
+.wf-note{color:var(--wf-muted);font-size:12px}
+.wf-h2{margin:0;font-size:17px;font-weight:600}
+.wf-list{display:flex;flex-direction:column;gap:10px}
+.wf-cols{display:flex;gap:24px;align-items:flex-start}
+.wf-stack{display:flex;flex-direction:column;gap:16px;align-items:center}

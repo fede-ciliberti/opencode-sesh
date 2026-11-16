@@ -1,0 +1,81 @@
+<!doctype html>
+<!-- Estado 1: lo implementado — sección acotada (6 dirs × 4) con Load more abajo y
+     espacio real para el bloque siguiente. -->
+<html lang="es"><head><meta charset="utf-8">
+<meta name="wf-viewport" content="1180x780">
+<title>Boceto — sidebar, sección acotada</title>
+<link rel="stylesheet" href="./wireframe.css">
+<link rel="stylesheet" href="./sidebar.css">
+</head><body>
+
+<div class="win win--desktop">
+  <div class="win__bar">
+    <span class="win__title">opencode</span>
+    <span class="win__ctrls"><i>&#8212;</i><i>&#9723;</i><i>&#215;</i></span>
+  </div>
+  <div class="tui">
+    <aside class="side">
+      <div class="native"><b>Context</b><br><span class="kv">202,767 tokens · 20% used</span></div>
+      <div class="native"><b>▶ MCP</b> <span class="kv">(8 active)</span></div>
+
+      <div class="section">
+        <span class="section__tag">sección con techo propio · directorios colapsados</span>
+        <div class="section__head">
+          <span><b>Sessions</b> <span style="color:#6b7280">(2435)</span></span>
+          <span style="color:#6b7280">▾ hide</span>
+        </div>
+        <div class="section__search">search…</div>
+        <div class="section__scroll">
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/PampacomSRL/agente</span><span class="grp__count">(323)</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/Tools/opencode-sesh</span><span class="grp__count">(5)</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/clients/PampacomSRL</span><span class="grp__count">(26)</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/sites/photazas.com</span><span class="grp__count">(158)</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/0m/oh-my-opagent-v2</span><span class="grp__count">(11)</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/opencode-plugins/opencode-r…</span><span class="grp__count">(4)</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/sites/pide.ar</span><span class="grp__count">(37)</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/clients/gasmujica</span><span class="grp__count">(19)</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/Tools/sesh-docs</span><span class="grp__count">(3)</span></div>
+          </div>
+          <div class="grp">
+            <div class="grp__head"><span>▸ /…/tmp/scratch</span><span class="grp__count">(8)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="below">
+        <span class="tag">▶ otro plugin / bloque del host</span>
+        <span>visible sin scrollear: la sección de arriba ya no lo empuja fuera de la pantalla</span>
+      </div>
+      <div class="grow"></div>
+    </aside>
+
+    <section class="notes">
+      <h3 class="notes__t">Lo implementado — un panel, dos niveles de scroll</h3>
+      <div class="note"><span class="note__n">1</span><span class="note__x"><b>Cabecera del plugin</b>: título con el total (2435), contador de sesiones que esperan respuesta, buscador y <b>▾ hide</b>. Es la que ya tenía, ahora dentro de una sección con techo propio.</span></div>
+      <div class="note"><span class="note__n">2</span><span class="note__x"><b>Los últimos 10 directorios, colapsados</b>: primero los fijados, después por recencia. Cada uno muestra el total real de sesiones entre paréntesis.</span></div>
+      <div class="note"><span class="note__n">3</span><span class="note__x"><b>Alturas explícitas</b>: la sección mide como máximo media terminal (14–26 filas) y el panel no crece con el contenido. Por eso el bloque de abajo sigue apareciendo, y por eso la cabecera ya no se recorta al cargar más.</span></div>
+      <div class="note"><span class="note__n">4</span><span class="note__x"><b>Scroll = pedir más</b>: al llegar al final de la lista de directorios, la rueda agrega los siguientes 10. No hay botón «load more» ni un control que toque dos cosas a la vez.</span></div>
+      <div class="note"><span class="note__n">5</span><span class="note__x"><b>Barra de desplazamiento visible</b> en el contenedor de la lista (columna derecha), y otra propia dentro de cada directorio expandido.</span></div>
+      <div class="chatbox">chat / sesión abierta — sin cambios</div>
+    </section>
+  </div>
+</div>
+
+</body></html>
