@@ -5,6 +5,111 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-11-18
+
+### Breaking changes
+
+- Finish V2 session compatibility and prune semantics _(breaking)_
+- Migrate to OpenCode V2 plugin API with full feature parity _(breaking)_
+
+### Added
+
+- **sidebar:** Require scroll pressure before loading more
+- **sidebar:** Append three rows per scroll and pulse them
+- **sidebar:** Scroll a directory label on hover too
+- **sidebar:** Scroll a session title while its row is hovered
+- **sidebar:** Collapsed directories, scroll growth one level at a time
+- **sidebar:** Open on a head of the list with Load more…
+- **tui:** Fit more picker rows, unify row actions, and label the cost digest
+- **tui:** Show home sessions directly below the composer (#40)
+- **tui:** Add showHome option for picker-only mode (#39)
+- **tui:** Configure sessions sidebar placement
+- **tui:** Make the sessions sidebar optional (#24)
+- **release:** Generate changelogs from released commit ranges
+- **tui:** Add sidebar session context menu
+- **tui:** Open sessions in a new cmux workspace on right-click
+- **tui:** Collapsible directory picker with overlay preview and Option shortcuts
+- **tui:** Center enlarged picker and overlay transcript preview
+- **tui:** Picker excerpts, filters, memory, and needs-input triage
+- **tui:** Show session activity and sort directory rows by recency
+- Cmux click-to-focus via resume records, and workspace naming sync
+- **tui:** Clicking a sidebar session focuses its live cmux workspace
+- **tui:** /sesh-costs and /sesh-needs slash commands
+- Cost digest, retitle, search weighting, cmux integration
+- Needs-input triage and stale-session pruning
+- **tui:** Sidebar lists every session, fills its height, and keeps delete armed
+- Pin sessions and directories in both pickers
+- **tui:** Make the panel safe and keyboard-navigable
+- **picker:** Confirm deletes and explain empty results
+
+### Changed
+
+- **sidebar:** Halve the pressure needed to load
+- **sidebar:** Tighten the pressure window to 200 ms
+- **tui:** Memoize home list columns and drop the duplicate route check (#46)
+- **tui:** Prefilter needs-input candidates by in-flight session state (#38)
+- **tui:** Reuse unchanged transcript text and bound index batches by bytes (#37)
+- **tui:** Extract transcript text in the DB worker (#35)
+
+### Fixed
+
+- **sidebar:** Consume the wheel that loads a chunk
+- **sidebar:** Keep the header click working while a query is active
+- **sidebar:** Loop the marquee while the row stays hovered
+- **sidebar:** Reveal the match in a filtered row and keep the marquee alive
+- **sidebar:** Paint the heading with the text colour, not the slot's default
+- **sidebar:** Make the collapse triangle its own hit target
+- **sidebar:** Cap the section so it stops taking the whole sidebar
+- **sidebar:** Keep the Load more… row above the list so it stays visible
+- **install:** Register the TUI panel in cli.json so options reach it
+- **picker:** Stop rescanning on every dispatch and widen scan budgets
+- **tui:** Truncate picker titles by terminal cells (#56)
+- **tui:** Preserve slash commands while hovering sidebar sessions (#52)
+- **tui:** Preserve dialog controls and readable rows on small terminals (#51)
+- **tui:** Keep narrow home rows readable while deleting, searching and pinning (#50)
+- **tui:** Keep home rows single-spaced when few sessions match (#49)
+- **tui:** Show sessions running in other OpenCode processes as running (#47)
+- **tui:** Animate running home sessions with the sidebar spinner (#45)
+- **tui:** Disambiguate home directory labels and brighten the search label (#44)
+- **tui:** Release hover shortcuts when typing into the composer (#43)
+- **tui:** Keep a two-column gap between home list columns (#42)
+- **tui:** Restore the search label in the home list header (#41)
+- **tui:** Stop the DB worker and sidebar polls on plugin dispose (#36)
+- **tui:** Run needs-input SQLite reads in a worker (#34)
+- **tui:** Skip the needs-input query when no sidebar consumes it (#33)
+- **tui:** Prevent home sessions from overlapping the composer (#30)
+- **engines:** Require OpenCode >=2.2.0
+- Harden pruning, picker concurrency, and TUI lifecycle
+- **tui:** Support ctrl-n and ctrl-p in the session picker (#11)
+- **packaging:** Ship precompiled TUI panel for npm installs
+- **packaging:** Add root export for opencode plugin and broaden opentui peer range
+- **tui:** Align sidebar search with Sessions heading
+- Align database access, fork and writes with the OpenCode V2 CLI
+- **tui:** Keep sidebar context menu clickable and dismiss preview in one press
+- **tui:** Omit empty directory filter from session listing query
+- **tui:** Prevent undefined menuBox dereference during sidebar render
+- **packaging:** Declare TUI runtime peer dependencies
+- Restore V2 session store, dialog and fork compatibility
+- **tui:** Rebind sidebar pins to option keys to stop shadowing composer
+- **tui:** Release sidebar captures when focus returns to composer
+- **tui:** Bind delete to option+d, readable selected rows, keep scroll on delete
+- **tui:** Adapt V2 theme colors for overlays and markdown previews
+- **tui:** Center home recent sessions list horizontally
+- **tui:** Activate context menu on mouseUp to prevent preview dismissal
+- **install:** Do not create backup files on install
+- **tui:** Confirm session delete without leaking keys into search input
+- **tui:** Neutral idle markers, ctrl pin binds, hidden child sessions
+- Remove the cmux bridge from the panel and CLI
+- **tui:** Focus live cmux workspace from every session-switch path
+- Never name a cmux workspace with a plugin sentinel title
+- Label the pin shortcut Option-S/Option-D on macOS
+- Keep space for typing across session browsers
+- **tui:** Improve session browsing and preview styling
+- Keep the TUI panel current on upgrade and tidy sidebar rows
+- Page TUI sessions, index all transcripts, and batch extraction
+- Harden transcript indexing, previews, cache validity, and installs
+- Correct picker identity, fork parsing, cache privacy, and agent listing
+
 ## [2.4.1] - 2026-11-08
 
 ### Fixed
@@ -647,6 +752,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixture-database regression suite, TypeScript typechecking, and ShellCheck in
   CI.
 
+[2.5.0]: https://github.com/fede-ciliberti/opencode-sesh/compare/v2.4.1...v2.5.0
 [2.4.1]: https://github.com/ozandogrultan/opencode-sesh/compare/v2.4.0...v2.4.1
 [2.4.0]: https://github.com/ozandogrultan/opencode-sesh/compare/v2.3.8...v2.4.0
 [2.3.8]: https://github.com/ozandogrultan/opencode-sesh/compare/v2.3.7...v2.3.8
