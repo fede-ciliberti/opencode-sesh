@@ -260,8 +260,8 @@ collapsed**: click one to expand its newest 10 sessions in a block that scrolls
 on its own, and the wheel at the end of either list pulls the next batch — 3
 more rows, one level at a time, never both — which flash softly as they arrive.
 Loading needs a deliberate push: reaching the bottom only arms it (the row shows
-one dot per push) and the third one loads, so the scrollbar rests at the real end
-and a flick never loads by itself. The section never takes more than half the sidebar and
+a dot) and the next one loads, so the scrollbar rests at the real end and a flick
+never loads by itself. The section never takes more than half the sidebar and
 scrolls inside, so the blocks around it stay reachable; click the **▼** triangle
 the way the host's own sections work to collapse it when you need the room.
 Sessions waiting on you (unanswered agent questions, runs stuck mid-tool) pin

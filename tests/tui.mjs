@@ -467,12 +467,11 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
   assert.equal(layer.marqueeCycleWidth("abcdefghij"), 13)
   assert.equal(layer.marqueeWindow("abcdefghij", 10, 4), " · a", "the gap is part of the loop")
   assert.equal(layer.marqueeWindow("abcdefghij", 13, 4), "abcd", "the offset wraps after the gap")
-  // Autoload pressure: the first pushes at the end only arm it; the third fires
+  // Autoload pressure: the first push at the end only arms it; the second fires
   // and resets, so the next batch needs its own push.
-  assert.deepEqual(layer.pressureStep(0, "push"), { pressure: 1, fire: false })
-  assert.deepEqual(layer.pressureStep(1, "push"), { pressure: 2, fire: false })
-  assert.deepEqual(layer.pressureStep(2, "push"), { pressure: 0, fire: true }, "the third push loads and resets")
-  assert.deepEqual(layer.pressureStep(2, "release"), { pressure: 0, fire: false }, "scrolling up or moving drops the pressure")
+  assert.deepEqual(layer.pressureStep(0, "push"), { pressure: 1, fire: false }, "the first push only arms it")
+  assert.deepEqual(layer.pressureStep(1, "push"), { pressure: 0, fire: true }, "the second loads and resets")
+  assert.deepEqual(layer.pressureStep(1, "release"), { pressure: 0, fire: false }, "scrolling up or moving drops the pressure")
   assert.deepEqual(layer.pressureStep(0, "release"), { pressure: 0, fire: false })
 
   // A filtered row must show the match even when it sits past the cut.

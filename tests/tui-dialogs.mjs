@@ -151,7 +151,7 @@ await check("picker preserves scope, needs-input filters and two-step delete", a
 const pushWheel = async (harness, x, y) => {
   await harness.setup.mockMouse.scroll(x, y, "down")
   await harness.setup.flush()
-  await new Promise((resolve) => setTimeout(resolve, 110))
+  await new Promise((resolve) => setTimeout(resolve, 150))
 }
 
 const sessionRows = (frame) => frame.split("\n").filter((line) => /[├└]/.test(line)).length
@@ -368,8 +368,6 @@ await check("autoload waits for pressure, then appends three rows and pulses the
     await pushWheel(harness, 20, 6)
     assert.equal(lastVisible(), atEnd, "the first push does not load")
     assert.match(harness.setup.captureCharFrame(), /more… ·/, "and it shows the pressure")
-    await pushWheel(harness, 20, 6)
-    assert.equal(lastVisible(), atEnd, "the second push does not load either")
     const wash = (needle) => {
       const spans = harness.setup.captureSpans()
       for (const line of spans.lines) {
@@ -382,7 +380,7 @@ await check("autoload waits for pressure, then appends three rows and pulses the
     await harness.setup.mockMouse.moveTo(1, 1)
     await harness.setup.renderOnce()
     const frame = harness.setup.captureCharFrame()
-    assert.ok(frame.includes("Deep session 10") && frame.includes("Deep session 12"), "the third push adds three rows\n" + frame)
+    assert.ok(frame.includes("Deep session 10") && frame.includes("Deep session 12"), "the second push adds three rows\n" + frame)
     assert.ok(!frame.includes("Deep session 13"), "and stops there\n" + frame)
     assert.equal(lastVisible(), 12, "the batch lands on screen")
     // Only the batch is washed, whatever the viewport happens to show.
@@ -414,11 +412,10 @@ await check("loading a chunk keeps the block in place", async () => {
     const headerLine = () => harness.setup.captureCharFrame().split("\n").findIndex((line) => line.includes("/work/deep"))
     const visible = () => (harness.setup.captureCharFrame().split("\n")
       .filter((line) => /Deep session \d/.test(line)).at(-1) ?? "").match(/Deep session (\d+)/)?.[1]
-    // Reach the end, arm twice, then the push that loads.
-    for (let turn = 0; turn < 3; turn++) await pushWheel(harness, 20, 6)
+    // Reach the end, arm once, then the push that loads.
+    for (let turn = 0; turn < 2; turn++) await pushWheel(harness, 20, 6)
     const before = { header: headerLine(), last: visible() }
-    await harness.setup.mockMouse.scroll(20, 6, "down")
-    await harness.setup.flush()
+    await pushWheel(harness, 20, 6)
     const after = { header: headerLine(), last: visible() }
     assert.equal(after.header, before.header, "the block stays where it was")
     assert.ok(Number(after.last) > Number(before.last), `the chunk is revealed (${before.last} -> ${after.last})`)
@@ -441,10 +438,7 @@ await check("the directory list waits for pressure and shows the gauge", async (
     assert.match(footer(), /more directories… ·/, "one push arms it")
     assert.equal(dirs(), start, "and does not load")
     await pushWheel(harness, 20, bottom())
-    assert.match(footer(), /more directories… · ·/, "two pushes")
-    assert.equal(dirs(), start, "still no load")
-    await pushWheel(harness, 20, bottom())
-    assert.ok(dirs() > start, "the third push loads")
+    assert.ok(dirs() > start, "the second push loads")
     assert.match(footer(), /3 more directories/, "and the footer counts the rest")
   } finally { harness.close() }
 })

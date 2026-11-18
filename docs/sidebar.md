@@ -21,7 +21,7 @@ Bocetos en `docs/mockups/`: el HTML es la fuente versionable, el PNG es derivado
 | Directorios | Los últimos `SIDEBAR_DIR_CHUNK` (10), **colapsados**; primero fijados, después por recencia |
 | Sesiones | Al expandir, las últimas `SIDEBAR_SESSION_CHUNK` (10) dentro de un bloque con `SIDEBAR_GROUP_ROWS` (10) filas y barra propia |
 | Autoload | La rueda al final de **cada nivel** agrega 3 de ese nivel; nunca las dos cosas a la vez |
-| Presión | El trigger exige el **fondo real** (la fila `more…` / el pie de directorios a la vista). Las primeras 2 ruedas ahí solo arman (un `·` por rueda) y la 3ª carga; se resetea a los 200 ms, al scrollear para arriba o al moverse, y una ráfaga < 90 ms cuenta como una sola (la ventana útil entre ruedas contadas es RESET − GAP) |
+| Presión | El trigger exige el **fondo real** (la fila `more…` / el pie de directorios a la vista). La primera rueda ahí solo arma (un `·`) y la segunda carga; se resetea a los 250 ms, al scrollear para arriba o al moverse, y una ráfaga < 120 ms cuenta como una sola (la ventana útil entre ruedas contadas es RESET − GAP) |
 | Revelado | El lote nuevo queda a la vista (`scrollTop` desde `renderAfter`, porque escribirlo antes se clampea a la altura vieja) y hace un pulso de 3 ondas sobre el **fondo de la fila**: el color de texto no se re-pinta en caliente en este renderer |
 | Scrollbars | Visibles: la del contenedor de la lista y la de cada directorio expandido |
 | Búsqueda | Abre todos los grupos y lista todos los matches (sin chunks), porque el query ya acotó el conjunto |

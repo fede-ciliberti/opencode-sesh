@@ -258,13 +258,13 @@ const PULSE_MIN_ALPHA = 0.35
 // arm it (the scrollbar reaches the true bottom), and the batch lands on the
 // PRESSURE_WHEELS-th. Pressure decays on its own so a slow reader never loads by
 // accident.
-const PRESSURE_WHEELS = 3
-const PRESSURE_RESET_MS = 200
+const PRESSURE_WHEELS = 2
+const PRESSURE_RESET_MS = 250
 // Wheel events closer than this belong to the same flick (a trackpad sends a
 // burst): they do not count as a separate push, or momentum alone would load.
 // It has to stay well under PRESSURE_RESET_MS: the usable window between two
 // counted pushes is RESET - GAP.
-const PRESSURE_MIN_GAP_MS = 90
+const PRESSURE_MIN_GAP_MS = 120
 // Peak of the wash that marks the rows a scroll just appended.
 const PULSE_PEAK = 0.18
 // An expanded directory renders fewer rows than a chunk, so there is always
