@@ -7,108 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.5.0] - 2026-11-18
 
-### Breaking changes
-
-- Finish V2 session compatibility and prune semantics _(breaking)_
-- Migrate to OpenCode V2 plugin API with full feature parity _(breaking)_
+The sidebar becomes a real panel: it lists the newest directories collapsed,
+opens a scrolled window per directory, pulls rows as you ask for them, and takes
+its own space instead of consuming the whole column.
 
 ### Added
 
-- **sidebar:** Require scroll pressure before loading more
-- **sidebar:** Append three rows per scroll and pulse them
-- **sidebar:** Scroll a directory label on hover too
-- **sidebar:** Scroll a session title while its row is hovered
-- **sidebar:** Collapsed directories, scroll growth one level at a time
-- **sidebar:** Open on a head of the list with Load more…
-- **tui:** Fit more picker rows, unify row actions, and label the cost digest
-- **tui:** Show home sessions directly below the composer (#40)
-- **tui:** Add showHome option for picker-only mode (#39)
-- **tui:** Configure sessions sidebar placement
-- **tui:** Make the sessions sidebar optional (#24)
-- **release:** Generate changelogs from released commit ranges
-- **tui:** Add sidebar session context menu
-- **tui:** Open sessions in a new cmux workspace on right-click
-- **tui:** Collapsible directory picker with overlay preview and Option shortcuts
-- **tui:** Center enlarged picker and overlay transcript preview
-- **tui:** Picker excerpts, filters, memory, and needs-input triage
-- **tui:** Show session activity and sort directory rows by recency
-- Cmux click-to-focus via resume records, and workspace naming sync
-- **tui:** Clicking a sidebar session focuses its live cmux workspace
-- **tui:** /sesh-costs and /sesh-needs slash commands
-- Cost digest, retitle, search weighting, cmux integration
-- Needs-input triage and stale-session pruning
-- **tui:** Sidebar lists every session, fills its height, and keeps delete armed
-- Pin sessions and directories in both pickers
-- **tui:** Make the panel safe and keyboard-navigable
-- **picker:** Confirm deletes and explain empty results
+- **sidebar:** Collapsed directories with per-level scroll growth. The section
+  lists the newest 10 directories and appends three at a time when the wheel
+  reaches the end; expanding one shows its newest 10 sessions in a scrollbox of
+  its own with the same growth.
+- **sidebar:** A long session title or directory label scrolls while its row is
+  hovered or holds the keyboard cursor, at the host's marquee cadence (80 ms per
+  column after a 600 ms pause, `" · "` between passes), and loops while the row
+  stays hovered.
+- **sidebar:** A filtered row reveals the matching word — the head is cut and
+  marked with `…` — so the highlight is visible without hovering, and the marquee
+  keeps working while a query is active.
+- **sidebar:** Appended rows announce themselves with three soft pulses over
+  ~700 ms.
+- **sidebar:** Loading takes pressure. Reaching the bottom only arms it (one dot
+  per push in the row) and the next push appends three rows, so the scrollbar
+  rests at the real end and a trackpad flick never loads by itself.
 
 ### Changed
 
-- **sidebar:** Halve the pressure needed to load
-- **sidebar:** Tighten the pressure window to 200 ms
-- **tui:** Memoize home list columns and drop the duplicate route check (#46)
-- **tui:** Prefilter needs-input candidates by in-flight session state (#38)
-- **tui:** Reuse unchanged transcript text and bound index batches by bytes (#37)
-- **tui:** Extract transcript text in the DB worker (#35)
+- **sidebar:** The heading adopts the host's section style — `▼`/`▶`, `Sessions`
+  in bold, the muted total, the triangle as the collapse control — and session
+  rows use bullets instead of tree branches.
+- **sidebar:** The section caps its own height (half the terminal, 14 to 26 rows)
+  with explicit heights at every level, so it stops taking the whole sidebar and
+  leaves room for the sections below it.
 
 ### Fixed
 
-- **sidebar:** Consume the wheel that loads a chunk
-- **sidebar:** Keep the header click working while a query is active
-- **sidebar:** Loop the marquee while the row stays hovered
-- **sidebar:** Reveal the match in a filtered row and keep the marquee alive
-- **sidebar:** Paint the heading with the text colour, not the slot's default
-- **sidebar:** Make the collapse triangle its own hit target
-- **sidebar:** Cap the section so it stops taking the whole sidebar
-- **sidebar:** Keep the Load more… row above the list so it stays visible
-- **install:** Register the TUI panel in cli.json so options reach it
-- **picker:** Stop rescanning on every dispatch and widen scan budgets
-- **tui:** Truncate picker titles by terminal cells (#56)
-- **tui:** Preserve slash commands while hovering sidebar sessions (#52)
-- **tui:** Preserve dialog controls and readable rows on small terminals (#51)
-- **tui:** Keep narrow home rows readable while deleting, searching and pinning (#50)
-- **tui:** Keep home rows single-spaced when few sessions match (#49)
-- **tui:** Show sessions running in other OpenCode processes as running (#47)
-- **tui:** Animate running home sessions with the sidebar spinner (#45)
-- **tui:** Disambiguate home directory labels and brighten the search label (#44)
-- **tui:** Release hover shortcuts when typing into the composer (#43)
-- **tui:** Keep a two-column gap between home list columns (#42)
-- **tui:** Restore the search label in the home list header (#41)
-- **tui:** Stop the DB worker and sidebar polls on plugin dispose (#36)
-- **tui:** Run needs-input SQLite reads in a worker (#34)
-- **tui:** Skip the needs-input query when no sidebar consumes it (#33)
-- **tui:** Prevent home sessions from overlapping the composer (#30)
-- **engines:** Require OpenCode >=2.2.0
-- Harden pruning, picker concurrency, and TUI lifecycle
-- **tui:** Support ctrl-n and ctrl-p in the session picker (#11)
-- **packaging:** Ship precompiled TUI panel for npm installs
-- **packaging:** Add root export for opencode plugin and broaden opentui peer range
-- **tui:** Align sidebar search with Sessions heading
-- Align database access, fork and writes with the OpenCode V2 CLI
-- **tui:** Keep sidebar context menu clickable and dismiss preview in one press
-- **tui:** Omit empty directory filter from session listing query
-- **tui:** Prevent undefined menuBox dereference during sidebar render
-- **packaging:** Declare TUI runtime peer dependencies
-- Restore V2 session store, dialog and fork compatibility
-- **tui:** Rebind sidebar pins to option keys to stop shadowing composer
-- **tui:** Release sidebar captures when focus returns to composer
-- **tui:** Bind delete to option+d, readable selected rows, keep scroll on delete
-- **tui:** Adapt V2 theme colors for overlays and markdown previews
-- **tui:** Center home recent sessions list horizontally
-- **tui:** Activate context menu on mouseUp to prevent preview dismissal
-- **install:** Do not create backup files on install
-- **tui:** Confirm session delete without leaking keys into search input
-- **tui:** Neutral idle markers, ctrl pin binds, hidden child sessions
-- Remove the cmux bridge from the panel and CLI
-- **tui:** Focus live cmux workspace from every session-switch path
-- Never name a cmux workspace with a plugin sentinel title
-- Label the pin shortcut Option-S/Option-D on macOS
-- Keep space for typing across session browsers
-- **tui:** Improve session browsing and preview styling
-- Keep the TUI panel current on upgrade and tidy sidebar rows
-- Page TUI sessions, index all transcripts, and batch extraction
-- Harden transcript indexing, previews, cache validity, and installs
-- Correct picker identity, fork parsing, cache privacy, and agent listing
+- **sidebar:** The collapse triangle activated keyboard navigation instead of
+  collapsing: the handler compared the click's x against the panel edge, and the
+  real sidebar does not place the plugin at x=0.
+- **sidebar:** Clicking a directory header while a query was active did nothing,
+  because the search forced every group open and the toggle was ignored.
+- **sidebar:** The heading rendered dimmer than the native sections; it now
+  carries the theme's text colour explicitly instead of inheriting the slot's.
+- **sidebar:** The budget row could be pushed out of the visible area; loading is
+  driven by the scroll now.
+- **sidebar:** The wheel that loads a chunk no longer scrolls the other list, and
+  the appended rows are revealed in place.
+- **install:** Register the TUI panel in `cli.json` so its options reach it.
+- **picker:** Stop rescanning on every dispatch and widen the scan budgets.
+
+### Dependencies
+
+- `string-width` to 9.0.0 (ESM-only, Node >= 22).
+- `@opencode/*` to 2.2.7, refreshing the dialog-layer verification notes.
+- `@babel/*`, `babel-preset-solid` and the `@opentui/*` group.
 
 ## [2.4.1] - 2026-11-08
 
